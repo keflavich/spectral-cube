@@ -19,6 +19,7 @@ r2deg = 180/np.pi
 _ctype_dict={'LII':'GLON',
              'BII':'GLAT',
              'VELOCITY':'VELO',
+             'TDV(VLO,VHI)':'VELO',
              'RA':'RA',
              'DEC':'DEC',
              'FREQUENCY': 'FREQ',
@@ -29,6 +30,7 @@ _cunit_dict = {'LII':'deg',
                'RA':'deg',
                'DEC':'deg',
                'FREQUENCY': 'MHz',
+               'TDV(VLO,VHI)':'km s-1',
               }
 cel_types = ('RA','DEC','GLON','GLAT')
 
