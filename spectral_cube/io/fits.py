@@ -122,22 +122,29 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
 
     if wcs.wcs.naxis == 3:
 
+        log.debug("3 axes: reorienting")
         data, wcs = cube_utils._orient(data, wcs)
 
+        log.debug("Creating mask")
         mask = LazyMask(np.isfinite, data=data, wcs=wcs)
         assert data.shape == mask._data.shape
+        log.debug("Instantiating cube")
         cube = SpectralCube(data, wcs, mask, meta=meta, header=header)
         assert cube._data.shape == cube._mask._data.shape
 
     elif wcs.wcs.naxis == 4:
 
+        log.debug("4 axes: splitting")
         data, wcs = cube_utils._split_stokes(data, wcs)
 
         mask = {}
         for component in data:
+            log.debug("Reorienting")
             data[component], wcs_slice = cube_utils._orient(data[component], wcs)
+            log.debug("Creating mask")
             mask[component] = LazyMask(np.isfinite, data=data[component], wcs=wcs_slice)
 
+        log.debug("Instantiating cube")
         cube = StokesSpectralCube(data, wcs_slice, mask, meta=meta, header=header)
 
     else:
