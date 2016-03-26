@@ -170,3 +170,24 @@ def to_ds9(self, ds9id=None, newframe=False):
     dd.set_pyfits(HDUList(self.hdu))
 
     return dd
+
+def to_ginga(self, base_url="http://localhost:9909/app"):
+    """
+    Open the cube in a quick viewer made from Ginga pieces
+    """
+    from ginga.web.pgw import Widgets
+    from ginga.misc import log
+    from .ginga_viewer import FITSViewer
+
+    logger = log.get_logger("spectral_cube")
+
+    # establish our widget application
+    app = Widgets.Application(logger=logger, host='localhost', port=9909)
+
+    #  create top level window
+    window = app.make_window("Spectral Cube Ginga Webapp Viewer")
+
+    # our own viewer object, customized with methods (see above)
+    viewer = FITSViewer(logger, window)
+
+    return viewer
