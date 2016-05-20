@@ -2665,6 +2665,10 @@ class VaryingResolutionSpectralCube(SpectralCube):
             """ Wrapper function around the standard operations to handle beams
             when creating projections """
 
+            # we really, really want to check if the beams are averageable
+            # *BEFORE* performing this expensive function, but it's not easy
+            # to determine whether the averaging even needs to happen!
+
             result = function(*args, **kwargs)
 
             if not isinstance(result, LowerDimensionalObject):
@@ -2673,11 +2677,11 @@ class VaryingResolutionSpectralCube(SpectralCube):
 
             # check that the spectral axis is being operated over
             # moments are a special case b/c they default to axis=0
-            need_to_handle_beams = ('axis' in kwargs and kwargs['axis']==0
-                                    or (hasattr(kwargs['axis'], '__len__') and
-                                        0 in kwargs['axis'])
-                                    or ('axis' not in kwargs and 'moment' in
-                                        function.__name__))
+            need_to_handle_beams = ('axis' in kwargs and kwargs['axis']==0 or
+                                    (hasattr(kwargs['axis'], '__len__') and 0
+                                     in kwargs['axis']) or
+                                    ('axis' not in kwargs and 'moment' in
+                                     function.__name__))
 
             if need_to_handle_beams:
                 avg_beam = self._average_beams(beam_threshold)
