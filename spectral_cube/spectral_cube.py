@@ -1007,17 +1007,27 @@ class BaseSpectralCube(BaseNDClass, SpectralAxisMixinClass):
             if not is_broadcastable_and_smaller(mask.shape, self._data.shape):
                 raise ValueError("Mask shape is not broadcastable to data shape: "
                                  "%s vs %s" % (mask.shape, self._data.shape))
+            log.debug("Creating new mask from shape {0} to shape {1}"
+                      .format(mask.shape, self._data.shape))
             mask = BooleanArrayMask(mask, self._wcs, shape=self._data.shape)
 
         if self._mask is not None:
+            log.debug("Combining self._mask with mask" if inherit_mask
+                      else "Setting self._mask to mask")
             new_mask = self._mask & mask if inherit_mask else mask
         else:
+            log.debug("Setting self._mask to mask because self._mask was None")
             new_mask = mask
 
+        log.debug("Validating WCS")
         new_mask._validate_wcs(new_data=self._data, new_wcs=self._wcs,
                                wcs_tolerance=wcs_tolerance or self._wcs_tolerance)
 
-        return self._new_cube_with(mask=new_mask, wcs_tolerance=wcs_tolerance)
+        log.debug("Creating new cube")
+        new_cube = self._new_cube_with(mask=new_mask, wcs_tolerance=wcs_tolerance)
+
+        return new_cube
+
 
     def __getitem__(self, view):
 

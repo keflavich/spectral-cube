@@ -5,6 +5,7 @@ import warnings
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.extern import six
+from astropy import log
 from collections import OrderedDict
 from astropy.io.fits.hdu.hdulist import fitsopen as fits_open
 
@@ -70,6 +71,8 @@ def read_data_fits(input, hdu=None, mode='denywrite', **kwargs):
 
     if isinstance(input, fits.HDUList):
 
+        log.debug("Reading FITS file from HDUlist")
+
         # Parse all array objects
         arrays = OrderedDict()
         for ihdu, hdu_item in enumerate(input):
@@ -106,7 +109,9 @@ def read_data_fits(input, hdu=None, mode='denywrite', **kwargs):
 
     else:
 
+        log.debug("Reading FITS file from filename {0}".format(input))
         hdulist = fits_open(input, mode=mode, **kwargs)
+        log.debug("Successfully read file {0}".format(input))
 
         try:
             return read_data_fits(hdulist, hdu=hdu)
