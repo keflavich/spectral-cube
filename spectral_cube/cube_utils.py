@@ -63,6 +63,7 @@ def _split_stokes(array, wcs):
     if wcs.wcs.naxis != 4:
         raise ValueError("Input WCS must be 4-dimensional for a STOKES cube")
 
+    log.debug("STOKES splitting: Fixing WCS to be spectral")
     wcs = _fix_spectral(wcs)
 
     # reverse from wcs -> numpy convention
@@ -112,6 +113,8 @@ def _split_stokes(array, wcs):
         # 3D array with STOKES as a 4th header parameter
         stokes_arrays['I'] = array
 
+    log.debug("Completed STOKES splitting")
+
     return stokes_arrays, wcs_slice
 
 
@@ -137,6 +140,7 @@ def _orient(array, wcs):
     if wcs.wcs.naxis != 3:
         raise ValueError("Input WCS must be 3-dimensional")
 
+    log.debug("_orient: diagonalizing WCS")
     wcs = wcs_utils.diagonal_wcs_to_cdelt(_fix_spectral(wcs))
 
     # reverse from wcs -> numpy convention
@@ -154,6 +158,8 @@ def _orient(array, wcs):
     result_array = array.transpose(t)
 
     result_wcs = wcs.sub([WCSSUB_LONGITUDE, WCSSUB_LATITUDE, WCSSUB_SPECTRAL])
+
+    log.debug("_orient complete.  Returning oriented Cube")
 
     return result_array, result_wcs
 

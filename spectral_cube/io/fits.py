@@ -103,6 +103,8 @@ def read_data_fits(input, hdu=None, mode='denywrite', **kwargs):
         else:
             raise ValueError("No arrays found")
 
+        log.debug("Completed reading FITS file from HDUlist")
+
     elif isinstance(input, (fits.PrimaryHDU, fits.ImageHDU)):
 
         array_hdu = input
@@ -143,10 +145,12 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
     if 'BUNIT' in header:
         meta['BUNIT'] = header['BUNIT']
 
+    log.debug("Creating WCS from FITS header")
     wcs = WCS(header)
 
     if wcs.wcs.naxis == 3:
 
+        log.debug("naxis=3.  Reorienting cube data.")
         data, wcs = cube_utils._orient(data, wcs)
 
         mask = LazyMask(np.isfinite, data=data, wcs=wcs)
@@ -166,10 +170,12 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
 
     elif wcs.wcs.naxis == 4:
 
+        log.debug("naxis=4.  Splitting Stokes and reorienting cube data.")
         data, wcs = cube_utils._split_stokes(data, wcs)
 
         stokes_data = {}
         for component in data:
+            log.debug("naxis=4.  Orienting data component {0}".format(component))
             comp_data, comp_wcs = cube_utils._orient(data[component], wcs)
             comp_mask = LazyMask(np.isfinite, data=comp_data, wcs=comp_wcs)
             if beam_table is None:
@@ -188,6 +194,8 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
     else:
 
         raise Exception("Data should be 3- or 4-dimensional")
+
+    log.debug("Completed FITS cube reading; returning cube to calling program.")
 
     return cube
 
