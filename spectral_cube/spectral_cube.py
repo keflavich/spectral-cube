@@ -130,6 +130,7 @@ class BaseSpectralCube(BaseNDClass, SpectralAxisMixinClass):
             data = data.value
 
         # TODO: mask should be oriented? Or should we assume correctly oriented here?
+        log.debug("BaseSpectralCube: orienting cube")
         self._data, self._wcs = cube_utils._orient(data, wcs)
         self._wcs_tolerance = wcs_tolerance
         self._spectral_axis = None
@@ -162,6 +163,7 @@ class BaseSpectralCube(BaseNDClass, SpectralAxisMixinClass):
         else:
             self._unit = None
 
+        log.debug("Setting spectral unit from WCS header")
         # We don't pass the spectral unit via the initializer since the user
         # should be using ``with_spectral_unit`` if they want to set it.
         # However, we do want to keep track of what units the spectral axis
@@ -178,6 +180,8 @@ class BaseSpectralCube(BaseNDClass, SpectralAxisMixinClass):
         self.allow_huge_operations = allow_huge_operations
 
         self._cache = {}
+
+        log.debug("Completed BaseSpectralCube initialization")
 
     @property
     def _is_huge(self):

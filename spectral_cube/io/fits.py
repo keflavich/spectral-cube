@@ -153,6 +153,7 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
         log.debug("naxis=3.  Reorienting cube data.")
         data, wcs = cube_utils._orient(data, wcs)
 
+        log.debug("cube loading naxis=3: Creating isfinite lazy mask")
         mask = LazyMask(np.isfinite, data=data, wcs=wcs)
         assert data.shape == mask._data.shape
         if beam_table is None:
@@ -177,6 +178,8 @@ def load_fits_cube(input, hdu=0, meta=None, **kwargs):
         for component in data:
             log.debug("naxis=4.  Orienting data component {0}".format(component))
             comp_data, comp_wcs = cube_utils._orient(data[component], wcs)
+
+            log.debug("cube loading naxis=4: Creating isfinite lazy mask")
             comp_mask = LazyMask(np.isfinite, data=comp_data, wcs=comp_wcs)
             if beam_table is None:
                 stokes_data[component] = SpectralCube(comp_data, wcs=comp_wcs,
