@@ -4,6 +4,7 @@ import numpy as np
 import warnings
 
 from astropy.io.fits import Card
+from astropy.nddata.nddata_base import NDDataBase
 
 from . import wcs_utils
 from . import cube_utils
@@ -17,7 +18,7 @@ DOPPLER_CONVENTIONS['optical'] = u.doppler_optical
 DOPPLER_CONVENTIONS['relativistic'] = u.doppler_relativistic
 
 
-class BaseNDClass(object):
+class BaseNDClass(NDDataBase):
 
     _cache = {}
 
