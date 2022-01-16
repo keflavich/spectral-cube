@@ -144,3 +144,26 @@ def make_multispecies_rgb(cube_r, cube_g, cube_b, prefix, v1, v2, vmin, vmax,
               '"scale=1024:768" -r 10' # "scale=1024:768,setpts=10*PTS"
               ' {prefix}_RGB_movie.mp4'.format(prefix=prefix,
                                                ffmpeg=ffmpeg_cmd))
+
+def make_rgb_moments(cube, vrange_blue, vrange_green, vrange_red,
+                     norm_kwargs_blue={}, norm_kwargs_green={}, norm_kwargs_red={},
+                     projection='moment0'):
+    """
+    Create a 3-color image composed from three velocity ranges in a cube
+    """
+    from astropy.visualization import simple_norm
+
+    scube_blue = cube.spectral_slab(*vrange_blue)
+    scube_green = cube.spectral_slab(*vrange_green)
+    scube_red = cube.spectral_slab(*vrange_red)
+
+    red = getattr(scube_red, projection)()
+    green = getattr(scube_green, projection)()
+    blue = getattr(scube_blue, projection)()
+
+    im = np.array([simple_norm(red, **norm_kwargs_red)(red),
+                   simple_norm(green, **norm_kwargs_green)(green),
+                   simple_norm(blue, **norm_kwargs_blue)(blue)])
+    im = im.T.swapaxes(0,1)
+
+    return im
