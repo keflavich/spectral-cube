@@ -754,7 +754,7 @@ def bunit_converters(obj, unit, equivalencies=(), freq=None):
 
 def combine_headers(header1, header2):
     '''
-    Given two Header objects, this function returns a fits Header of the optimal wcs. 
+    Given two Header objects, this function returns a fits Header of the optimal wcs.
 
     Parameters
     ----------
@@ -766,7 +766,7 @@ def combine_headers(header1, header2):
     Returns
     -------
     header : astropy.io.fits.Header
-        A header object of a field containing both initial headers. 
+        A header object of a field containing both initial headers.
 
     '''
 
@@ -793,14 +793,14 @@ def combine_headers(header1, header2):
 
 def mosaic_cubes(cubes, spectral_block_size=100, **kwargs):
     '''
-    This function reprojects cubes onto a common grid and combines them to a single field.  
+    This function reprojects cubes onto a common grid and combines them to a single field.
 
     Parameters
     ----------
     cubes : iterable
-        Iterable list of SpectralCube objects to reproject and add together. 
+        Iterable list of SpectralCube objects to reproject and add together.
     spectral_block_size : int
-        Block size so that reproject does not run out of memory. 
+        Block size so that reproject does not run out of memory.
 
     Outputs
     -------
