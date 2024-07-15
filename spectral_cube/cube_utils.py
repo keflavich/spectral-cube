@@ -1142,7 +1142,7 @@ def mosaic_cubes(cubes, spectral_block_size=100, combine_header_kwargs={},
                 output_array=output_array,
                 output_footprint=output_footprint,
                 reproject_function=reproject_interp,
-                progressbar=tqdm(desc='reproject_and_coadd') if verbose else False,
+                #progressbar=tqdm(desc='reproject_and_coadd') if verbose else False,
                 intermediate_memmap=True,
                 block_sizes=(None if spectral_block_size is None else
                              [(spectral_block_size, cube.shape[1], cube.shape[2])
@@ -1159,7 +1159,7 @@ def mosaic_cubes(cubes, spectral_block_size=100, combine_header_kwargs={},
                 output_array=output_array,
                 output_footprint=output_footprint,
                 reproject_function=reproject_interp,
-                progressbar=tqdm(desc='reproject_and_coadd') if verbose else False,
+                #progressbar=tqdm(desc='reproject_and_coadd') if verbose else False,
             )
     elif method == 'channel':
         log_("Using Channel method")
@@ -1286,6 +1286,10 @@ def mosaic_cubes(cubes, spectral_block_size=100, combine_header_kwargs={},
                 datas = [cube._get_filled_data() for cube in scubes]
                 wcses = [cube.wcs for cube in scubes]
 
+                if len(datas) == 0:
+                    log.warn(f"Channel {ii}={channel} has no matched data.  Skipping")
+                    continue
+
                 if client is None:
                     client = Client()
 
@@ -1304,7 +1308,7 @@ def mosaic_cubes(cubes, spectral_block_size=100, combine_header_kwargs={},
                     reproject_function=reproject_interp,
                     input_weights=wthdus,
                     #block_size=[2,-1,-1],
-                    progressbar=partial(tqdm, desc=f'coadd ch{ii}') if verbose else False,
+                    #progressbar=partial(tqdm, desc=f'coadd ch{ii}') if verbose else False,
                     match_background=False,
                 )
 
