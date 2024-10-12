@@ -3491,9 +3491,10 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
             newshape = tuple(newshape)
 
             if progressbar:
-                progressbar = ProgressBar
+                progressbar = ProgressBar(newshape[axis], desc='Downsample: ')
+                pbu = progressbar.update
             else:
-                progressbar = lambda x, desc: x
+                pbu = lambda: True
 
             # Create a view that will add a blank newaxis at the right spot
             view_newaxis = [slice(None) for ii in range(self.ndim)]
@@ -3504,7 +3505,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
             dsarr = np.memmap(ntf, mode='w+', shape=newshape, dtype=float)
             ntf2 = tempfile.NamedTemporaryFile()
             mask = np.memmap(ntf2, mode='w+', shape=newshape, dtype=bool)
-            for ii in progressbar(range(newshape[axis]), desc='Downsample: '):
+            for ii in range(newshape[axis]):
                 view_fulldata = makeslice_local(ii*factor)
                 view_newdata = makeslice_local(ii, nsteps=1)
 
@@ -3513,6 +3514,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
 
                 dsarr[view_newdata] = estimator(to_average, axis)[view_newaxis]
                 mask[view_newdata] = np.any(to_anyfy, axis).astype('bool')[view_newaxis]
+                pbu()
 
 
         # the slice should just start at zero; we had factor//2 here earlier,
