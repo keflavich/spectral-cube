@@ -314,7 +314,9 @@ class DaskSpectralCubeMixin:
         if self._mask is None:
             return data[view]
         else:
-            return da.from_array(FilledArrayHandler(self, fill=fill), name='FilledArrayHandler ' + str(uuid.uuid4()), chunks=data.chunksize)[view]
+            return from_dask_array(FilledArrayHandler(self, fill=fill),
+                                   name='FilledArrayHandler ' + str(uuid.uuid4()),
+                                   chunks=data.chunksize)[view]
 
     def __repr__(self):
         default_repr = super().__repr__()
@@ -1572,8 +1574,11 @@ class DaskVaryingResolutionSpectralCube(DaskSpectralCubeMixin, VaryingResolution
 
         # We need to pass in the beams to dask, so we hide them inside an object array
         # that can then be chunked like the data.
-        beams = da.from_array(np.array(beams, dtype=object)
-                              .reshape((len(beams), 1, 1)), chunks=(-1, -1, -1))
+        beams = from_dask_array(np.array(beams, dtype=object)
+                               .reshape((len(beams), 1, 1)),
+                               name='beams',
+                               chunks=(-1, -1, -1),
+                               )
 
         needs_beam_ratio = self.unit.is_equivalent(u.Jy / u.beam)
 
@@ -1627,8 +1632,27 @@ class DaskVaryingResolutionSpectralCube(DaskSpectralCubeMixin, VaryingResolution
 
     @property
     def _mask_include(self):
-        return BooleanArrayMask(da.from_array(MaskHandler(self),
-                                              name='MaskHandler ' + str(uuid.uuid4()),
-                                              chunks=self._data.chunksize),
+        return BooleanArrayMask(from_dask_array(MaskHandler(self),
+                                                name='MaskHandler ' + str(uuid.uuid4()),
+                                                chunks=self._data.chunksize),
                                 wcs=self.wcs,
                                 shape=self.shape)
+
+
+def from_dask_array(data, name, chunks, meta=None):
+    from dask.array.core import normalize_chunks, slices_from_chunks, product, Array
+
+    previous_chunks = getattr(data, "chunks", None)
+    chunks = normalize_chunks(
+        chunks, data.shape, dtype=data.dtype, previous_chunks=previous_chunks
+    )
+
+    slices = slices_from_chunks(chunks)
+    keys = product([name], *(range(len(bds)) for bds in chunks))
+    values = [x[slc] for slc in slices]
+    dsk = dict(zip(keys, values))
+
+    if meta is None:
+        meta = data
+
+    return Array(dsk, name, chunks, meta=meta, dtype=getattr(data, "dtype", None))
