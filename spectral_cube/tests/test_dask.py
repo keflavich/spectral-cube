@@ -291,6 +291,23 @@ def test_cube_on_cube(filename, request):
     mock.assert_called_once()
 
 
+def test_multibeam_no_beam_error(data_vda_beams):
+    # Regression test for #832: a DaskVaryingResolutionSpectralCube asked for
+    # a single beam should raise NoBeamError (like SpectralCube does when no
+    # beam is defined), not a bare AttributeError.
+    from spectral_cube.utils import NoBeamError
+
+    cube = DaskVaryingResolutionSpectralCube.read(data_vda_beams)
+    assert isinstance(cube, DaskVaryingResolutionSpectralCube)
+
+    with pytest.raises(NoBeamError, match='multiple beams'):
+        cube.beam
+
+    # hasattr-based single-vs-multi-beam checks must keep working
+    assert not hasattr(cube, 'beam')
+    assert hasattr(cube, 'beams')
+
+
 if DISTRIBUTED_INSTALLED:
 
     def test_dask_distributed(client, tmpdir):  # noqa

@@ -8,6 +8,11 @@
 
 - Avoid deprecation warning with astropy>=8 #991
 
+- Accessing ``.beam`` on a multi-beam cube (including dask varying-resolution
+  cubes) now raises ``NoBeamError`` with a message pointing to ``.beams``,
+  instead of a bare ``AttributeError``. ``NoBeamError`` now subclasses
+  ``AttributeError`` so ``hasattr``-based beam checks keep working. #832
+
 0.6.5 (2023-12-05)
 ----------------------
 - Fixed issue with fix from #893 not getting included in the 0.6.4 tag

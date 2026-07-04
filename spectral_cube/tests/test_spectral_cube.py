@@ -1643,6 +1643,21 @@ def test_cube_with_no_beam(data_adv, use_dask):
     except utils.NoBeamError as exc:
         raise exc
 
+def test_multibeam_no_beam_error(data_vda_beams, use_dask):
+    # Regression test for #832: accessing ``.beam`` on a multi-beam cube
+    # (dask or not) should raise NoBeamError with a helpful message, not a
+    # bare AttributeError, consistent with beamless single-beam cubes.
+    cube, data = cube_and_raw(data_vda_beams, use_dask=use_dask)
+
+    with pytest.raises(utils.NoBeamError, match='multiple beams'):
+        cube.beam
+
+    # NoBeamError subclasses AttributeError, so hasattr-based checks used to
+    # distinguish single-beam from multi-beam objects continue to work
+    assert not hasattr(cube, 'beam')
+    assert hasattr(cube, 'beams')
+
+
 def test_multibeam_custom(data_vda_beams, use_dask):
 
     cube, data = cube_and_raw(data_vda_beams, use_dask=use_dask)

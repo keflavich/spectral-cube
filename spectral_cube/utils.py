@@ -128,7 +128,10 @@ class BadVelocitiesWarning(SpectralCubeWarning):
 class FITSReadError(Exception):
     pass
 
-class NoBeamError(Exception):
+class NoBeamError(AttributeError):
+    # NoBeamError subclasses AttributeError because accessing ``.beam`` on an
+    # object without a beam is an attribute-access failure; this keeps
+    # ``hasattr(obj, 'beam')`` working (returning False) for beamless objects.
     pass
 
 class BeamUnitsError(Exception):

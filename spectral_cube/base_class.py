@@ -497,6 +497,13 @@ class MultiBeamMixinClass(object):
         return factor
 
     @property
+    def beam(self):
+        raise NoBeamError("This object has multiple beams, not a single beam. "
+                          "Use the `beams` attribute to access them, "
+                          "`average_beams` to compute an average beam, or "
+                          "`convolve_to` to convolve to a common beam.")
+
+    @property
     def beams(self):
         return self._beams[self.goodbeams_mask]
 
