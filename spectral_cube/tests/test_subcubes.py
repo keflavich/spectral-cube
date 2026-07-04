@@ -2,12 +2,15 @@ import pytest
 
 from astropy import units as u
 from astropy import wcs
+from astropy.io import fits
 import numpy as np
 
 from . import path
 from .helpers import assert_allclose, assert_array_equal
 from .test_spectral_cube import cube_and_raw
 from ..spectral_axis import doppler_gamma, doppler_beta, doppler_z, get_rest_value_from_wcs
+from ..spectral_cube import SpectralCube
+from ..utils import WCSWarning
 
 try:
     import regions
@@ -91,6 +94,99 @@ def test_subcube(data_advs, use_dask):
     assert sc5.shape == cube.shape
     assert sc5.wcs.wcs.compare(cube.wcs.wcs)
     assert np.all(sc5._data == cube._data)
+
+
+def make_allsky_car_hdu(nx=49, ny=25, nz=5):
+    """
+    An all-sky plate carree (CAR) cube like the HI4PI one in issue #934:
+    the pixel grid extends slightly past +-90 deg latitude and +-180 deg
+    longitude, so the edge pixels fall outside the valid region of the
+    projection and have NaN world coordinates.
+    """
+    header = fits.Header()
+    header['NAXIS'] = 3
+    header['NAXIS1'] = nx
+    header['NAXIS2'] = ny
+    header['NAXIS3'] = nz
+    header['CTYPE1'] = 'GLON-CAR'
+    header['CRVAL1'] = 0.0
+    header['CDELT1'] = -360.2 / (nx - 1)  # spans a bit more than 360 deg
+    header['CRPIX1'] = (nx + 1) / 2.
+    header['CUNIT1'] = 'deg'
+    header['CTYPE2'] = 'GLAT-CAR'
+    header['CRVAL2'] = 0.0
+    header['CDELT2'] = 180.2 / (ny - 1)  # spans a bit more than 180 deg
+    header['CRPIX2'] = (ny + 1) / 2.
+    header['CUNIT2'] = 'deg'
+    header['CTYPE3'] = 'VRAD'
+    header['CRVAL3'] = 0.0
+    header['CDELT3'] = 1000.0
+    header['CRPIX3'] = (nz + 1) / 2.
+    header['CUNIT3'] = 'm/s'
+    header['BUNIT'] = 'K'
+
+    data = np.arange(nz * ny * nx, dtype=float).reshape((nz, ny, nx))
+
+    return fits.PrimaryHDU(data=data, header=header)
+
+
+def test_subcube_allsky(use_dask):
+    # regression test for issue #934: edge pixels of all-sky cubes can fall
+    # outside of the valid region of the projection, so they have NaN world
+    # coordinates.  These should be ignored when computing the world extrema
+    # and when converting world limits to pixel limits in subcube.
+
+    hdu = make_allsky_car_hdu()
+    nz, ny, nx = hdu.data.shape
+
+    cube = SpectralCube.read(hdu, use_dask=use_dask)
+
+    # corner pixels are outside of the valid region of the projection
+    assert all(np.isnan(coord.value) for coord in cube.world[0, 0, 0][1:])
+
+    # ...but the world extrema should ignore the invalid edge pixels
+    assert not np.any(np.isnan(cube.longitude_extrema))
+    assert not np.any(np.isnan(cube.latitude_extrema))
+
+    # the reported extrema should be those of the valid interior pixels
+    dlat = 180.2 / (ny - 1)
+    max_lat = np.floor(90. / dlat) * dlat
+    assert_allclose(cube.latitude_extrema.value, [-max_lat, max_lat])
+
+    # the repr exercises the world extrema, too
+    assert 'nan' not in repr(cube)
+
+    # extracting a latitude strip should keep the full longitude range
+    subcube = cube.subcube(ylo=-30 * u.deg, yhi=30 * u.deg)
+
+    lat_strip = (np.arange(ny) - (ny - 1) / 2) * dlat
+    nsel = ((lat_strip >= -30) & (lat_strip <= 30)).sum()
+
+    # end-inclusive world slicing rounds to the nearest pixel on each side
+    assert subcube.shape in [(nz, nsel, nx), (nz, nsel + 2, nx)]
+    assert 'nan' not in repr(subcube)
+
+    # pixel-based slicing should be unaffected
+    assert cube.subcube(xlo=1, xhi=4).shape == (nz, ny, 3)
+
+
+def test_subcube_fully_invalid_wcs(use_dask):
+    # companion to test_subcube_allsky: if *all* pixels have invalid world
+    # coordinates, the world extrema are NaN and a warning is raised
+    hdu = make_allsky_car_hdu()
+    # push the entire pixel grid past the pole so no pixel is valid
+    hdu.header['CRVAL2'] = 0.0
+    hdu.header['CRPIX2'] = hdu.header['NAXIS2'] * 100
+
+    cube = SpectralCube.read(hdu, use_dask=use_dask)
+
+    with pytest.warns(WCSWarning, match='the world extrema cannot'):
+        extrema = cube.world_extrema
+
+    assert np.all(np.isnan(extrema))
+
+    with pytest.raises(ValueError, match='cannot convert the world limit'):
+        cube.subcube(ylo=-30 * u.deg, yhi=30 * u.deg)
 
 
 @pytest.mark.skipif('not scipyOK', reason='Could not import scipy')

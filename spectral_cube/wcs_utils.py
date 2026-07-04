@@ -551,50 +551,24 @@ def find_spatial_pixel_index(cube, xlo, xhi, ylo, yhi):
 
     limit_dict = {}
 
-    # Match corners. If one uses a WCS coord, set 'min'/'max'
-    # To the lat or long extrema.
-    # We only care about matching spatial corners.
-    xlo_unit = hasattr(xlo, 'unit')
-    ylo_unit = hasattr(ylo, 'unit')
+    # 'min'/'max' limits are equivalent to the full pixel range along that
+    # axis, so they are kept in pixel units rather than being converted to
+    # world coordinates through the world extrema.  For cubes that extend
+    # beyond the valid region of their projection (e.g., all-sky cubes; see
+    # issue #934), the world coordinates at the cube edges may be invalid
+    # (NaN), and for cubes spanning the full longitude range, the min/max of
+    # the (cyclic) longitude does not map back to the pixel edges.
+    limit_dict['xlo'] = 0 if xlo == 'min' else xlo
+    limit_dict['ylo'] = 0 if ylo == 'min' else ylo
 
-    # Do min/max switching if the WCS grid increases/decreases
-    # with the pixel grid.
-    ymin = min if cube.wcs.wcs.cdelt[1] > 0 else max
-    xmin = min if cube.wcs.wcs.cdelt[0] > 0 else max
-    ymax = max if cube.wcs.wcs.cdelt[1] > 0 else min
-    xmax = max if cube.wcs.wcs.cdelt[0] > 0 else min
-
-    if not any([xlo_unit, ylo_unit]):
-        limit_dict['xlo'] = 0 if xlo == 'min' else xlo
-        limit_dict['ylo'] = 0 if ylo == 'min' else ylo
+    # For 3D cube
+    if ndim == 3:
+        limit_dict['xhi'] = cube.shape[2] if xhi == 'max' else xhi
+        limit_dict['yhi'] = cube.shape[1] if yhi == 'max' else yhi
+    # For 2D spatial projection/slice
     else:
-        if xlo_unit:
-            limit_dict['xlo'] = xlo
-            limit_dict['ylo'] = ymin(cube.latitude_extrema) if ylo == 'min' else ylo
-        if ylo_unit:
-            limit_dict['ylo'] = ylo
-            limit_dict['xlo'] = xmin(cube.longitude_extrema) if xlo == 'min' else xlo
-
-    xhi_unit = hasattr(xhi, 'unit')
-    yhi_unit = hasattr(yhi, 'unit')
-
-    if not any([xhi_unit, yhi_unit]):
-
-        # For 3D cube
-        if ndim == 3:
-            limit_dict['xhi'] = cube.shape[2] if xhi == 'max' else xhi
-            limit_dict['yhi'] = cube.shape[1] if yhi == 'max' else yhi
-        # For 2D spatial projection/slice
-        else:
-            limit_dict['xhi'] = cube.shape[1] if xhi == 'max' else xhi
-            limit_dict['yhi'] = cube.shape[0] if yhi == 'max' else yhi
-    else:
-        if xhi_unit:
-            limit_dict['xhi'] = xhi
-            limit_dict['yhi'] = ymax(cube.latitude_extrema) if yhi == 'max' else yhi
-        if yhi_unit:
-            limit_dict['yhi'] = yhi
-            limit_dict['xhi'] = xmax(cube.longitude_extrema) if xhi == 'max' else xhi
+        limit_dict['xhi'] = cube.shape[1] if xhi == 'max' else xhi
+        limit_dict['yhi'] = cube.shape[0] if yhi == 'max' else yhi
 
     # list to track which entries had units
     united = []
@@ -626,6 +600,14 @@ def find_spatial_pixel_index(cube, xlo, xhi, ylo, yhi):
             corn_arr = np.array([limit_dict['x'+corn].value,
                                  limit_dict['y'+corn].value])
 
+            if np.any(np.isnan(corn_arr)):
+                raise ValueError("The world coordinates for the '{0}' corner "
+                                 "are NaN; cannot convert them to pixel "
+                                 "coordinates. This may happen if all edge "
+                                 "pixels of the cube fall outside of the "
+                                 "valid region of the projection."
+                                 .format(corn))
+
             xmin, ymin = cube.wcs.celestial.world_to_array_index_values(corn_arr.reshape((1, 2)))[0]
 
             limit_dict['y' + corn] = ymin
@@ -654,31 +636,50 @@ def find_spatial_pixel_index(cube, xlo, xhi, ylo, yhi):
                 lim = 'y' + corn
                 slicedim = 1
 
-            if corn == 'lo':
-                slice_pixdim = slice(pixval, pixval+1)
-            else:
-                slice_pixdim = slice(pixval-1, pixval)
-
             limval = limit_dict[lim]
             if hasattr(limval, 'unit'):
                 united.append(lim)
 
-                sl = [slice(None)]
-                sl.insert(slicedim, slice_pixdim)
+                def _spine(pixind):
+                    sl = [slice(None)]
+                    sl.insert(slicedim, slice(pixind, pixind + 1))
 
-                if ndim == 3:
-                    sl.insert(0, slice(0, 1))
+                    if ndim == 3:
+                        sl.insert(0, slice(0, 1))
 
+                    sl = tuple(sl)
 
-                sl = tuple(sl)
+                    if slicedim == 0:
+                        return cube.world[sl][2 if ndim == 3 else 1]
+                    else:
+                        return cube.world[sl][1 if ndim == 3 else 0]
 
-                if slicedim == 0:
-                    spine = cube.world[sl][2 if ndim == 3 else 1]
-                else:
-                    spine = cube.world[sl][1 if ndim == 3 else 0]
+                # index of the fixed row/column; the 'hi' limit is exclusive,
+                # so the last included pixel is pixval-1
+                pixind = pixval if corn == 'lo' else pixval - 1
 
-                val = np.argmin(np.abs(limval-spine))
-                if limval > spine.max() or limval < spine.min():
+                spine = _spine(pixind)
+
+                # Pixels outside of the valid region of the projection have
+                # NaN world coordinates and should be ignored (see issue
+                # #934, all-sky cubes whose edge pixels extend past the
+                # valid longitude/latitude ranges).  If the fixed row/column
+                # is entirely invalid, step inward to the nearest row/column
+                # with any valid world coordinates.
+                npix = cube.shape[slicedim - 2]
+                inward = 1 if corn == 'lo' else -1
+                while np.all(np.isnan(spine)) and 0 <= pixind + inward < npix:
+                    pixind += inward
+                    spine = _spine(pixind)
+
+                if np.all(np.isnan(spine)):
+                    raise ValueError("All world coordinates along the "
+                                     "'{0}' axis are NaN: cannot convert "
+                                     "the world limit {1} to a pixel limit."
+                                     .format(lim, limval))
+
+                val = np.nanargmin(np.abs(limval-spine))
+                if limval > np.nanmax(spine) or limval < np.nanmin(spine):
                     log.warning("The limit {0} is out of bounds."
                                 "  Using min/max instead.".format(lim))
 

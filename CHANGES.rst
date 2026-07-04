@@ -8,6 +8,12 @@
 
 - Avoid deprecation warning with astropy>=8 #991
 
+- Ignore edge pixels with invalid (NaN) world coordinates when computing the
+  world extrema and when converting world limits to pixel limits in
+  ``subcube``.  This fixes NaN longitude/latitude ranges in the cube repr and
+  failing ``subcube`` calls for all-sky cubes (e.g. HI4PI) whose edge pixels
+  fall outside the valid region of the projection. #934
+
 0.6.5 (2023-12-05)
 ----------------------
 - Fixed issue with fix from #893 not getting included in the 0.6.4 tag

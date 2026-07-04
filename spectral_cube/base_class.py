@@ -15,7 +15,9 @@ except ImportError:
 
 from . import wcs_utils
 from . import cube_utils
-from .utils import BeamWarning, cached, WCSCelestialError, BeamAverageWarning, NoBeamError, BeamUnitsError, computed_quantity
+from .utils import (BeamWarning, cached, WCSCelestialError, WCSWarning,
+                    BeamAverageWarning, NoBeamError, BeamUnitsError,
+                    computed_quantity)
 from .masks import BooleanArrayMask
 
 
@@ -287,10 +289,26 @@ class SpatialCoordMixinClass(object):
         lon = u.Quantity([x for y,x in latlon_corners])
         lat = u.Quantity([y for y,x in latlon_corners])
 
-        _lon_min = lon.min()
-        _lon_max = lon.max()
-        _lat_min = lat.min()
-        _lat_max = lat.max()
+        if np.any(np.isnan(lon)) or np.any(np.isnan(lat)):
+            # At least one corner pixel is outside the valid region of the
+            # projection (e.g., an all-sky CAR cube whose edge pixels extend
+            # past the poles; see issue #934).  Fall back to computing the
+            # world coordinates of the whole spatial plane and ignore any
+            # invalid (NaN) coordinates.
+            lat, lon = self.spatial_coordinate_map
+
+            if np.all(np.isnan(lon)) or np.all(np.isnan(lat)):
+                warnings.warn("All pixels in the cube have invalid world "
+                              "coordinates; the world extrema cannot be "
+                              "determined and are returned as NaN.",
+                              WCSWarning)
+                return u.Quantity([[np.nan, np.nan], [np.nan, np.nan]],
+                                  u.deg)
+
+        _lon_min = np.nanmin(lon)
+        _lon_max = np.nanmax(lon)
+        _lat_min = np.nanmin(lat)
+        _lat_max = np.nanmax(lat)
 
         return u.Quantity(((_lon_min.to(u.deg).value, _lon_max.to(u.deg).value),
                            (_lat_min.to(u.deg).value, _lat_max.to(u.deg).value)),
