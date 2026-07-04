@@ -1878,18 +1878,23 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
 
         return slab
 
-    def minimal_subcube(self, spatial_only=False):
+    def minimal_subcube(self, spatial_only=False, spectral_only=False):
         """
         Return the minimum enclosing subcube where the mask is valid
 
         Parameters
         ----------
         spatial_only: bool
-            Only compute the minimal subcube in the spatial dimensions
+            Only compute the minimal subcube in the spatial dimensions;
+            the spectral dimension will be left unchanged
+        spectral_only: bool
+            Only compute the minimal subcube in the spectral dimension;
+            the spatial dimensions will be left unchanged
         """
         if self._mask is not None:
             return self[self.subcube_slices_from_mask(self._mask,
-                                                      spatial_only=spatial_only)]
+                                                      spatial_only=spatial_only,
+                                                      spectral_only=spectral_only)]
         else:
             return self[:]
 
@@ -1905,7 +1910,8 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         """
         return self[self.subcube_slices_from_mask(region_mask)]
 
-    def subcube_slices_from_mask(self, region_mask, spatial_only=False):
+    def subcube_slices_from_mask(self, region_mask, spatial_only=False,
+                                 spectral_only=False):
         """
         Given a mask, return the slices corresponding to the minimum subcube
         that encloses the mask
@@ -1918,7 +1924,14 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         spatial_only: bool
             Return only slices that affect the spatial dimensions; the spectral
             dimension will be left unchanged
+        spectral_only: bool
+            Return only the slice that affects the spectral dimension; the
+            spatial dimensions will be left unchanged
         """
+        if spatial_only and spectral_only:
+            raise ValueError("Only one of spatial_only and spectral_only "
+                             "can be set to True.")
+
         if not scipyOK:
             raise ImportError("Scipy could not be imported: this function won't work.")
 
@@ -1941,6 +1954,8 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
 
         if spatial_only:
             slices = (slice(None), slices[1], slices[2])
+        elif spectral_only:
+            slices = (slices[0], slice(None), slice(None))
 
         return tuple(slices)
 

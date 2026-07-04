@@ -1115,7 +1115,8 @@ class DaskSpectralCubeMixin:
         return Projection(out, copy=False, wcs=new_wcs, meta=meta,
                           header=self._nowcs_header)
 
-    def subcube_slices_from_mask(self, region_mask, spatial_only=False):
+    def subcube_slices_from_mask(self, region_mask, spatial_only=False,
+                                 spectral_only=False):
         """
         Given a mask, return the slices corresponding to the minimum subcube
         that encloses the mask
@@ -1128,7 +1129,14 @@ class DaskSpectralCubeMixin:
         spatial_only: bool
             Return only slices that affect the spatial dimensions; the spectral
             dimension will be left unchanged
+        spectral_only: bool
+            Return only the slice that affects the spectral dimension; the
+            spatial dimensions will be left unchanged
         """
+
+        if spatial_only and spectral_only:
+            raise ValueError("Only one of spatial_only and spectral_only "
+                             "can be set to True.")
 
         # We need to use a slightly different approach to SpectralCube here
         # because there isn't yet a dask-friendly version of find_objects
@@ -1147,7 +1155,8 @@ class DaskSpectralCubeMixin:
 
         slices = []
         for axis in range(3):
-            if axis == 0 and spatial_only:
+            if ((axis == 0 and spatial_only) or
+                    (axis != 0 and spectral_only)):
                 slices.append(slice(None))
                 continue
             collapse_axes = tuple(index for index in range(3) if index != axis)

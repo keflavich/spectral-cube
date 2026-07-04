@@ -2747,6 +2747,40 @@ def test_minimal_subcube(use_dask):
     assert subcube.shape == (3, 5, 2)
 
 
+def test_minimal_subcube_spatial_spectral_only(use_dask):
+
+    if not use_dask:
+        pytest.importorskip('scipy')
+
+    data = np.arange(210, dtype=float).reshape((5, 6, 7))
+    data[0] = np.nan
+    data[2] = np.nan
+    data[4] = np.nan
+    data[:,0] = np.nan
+    data[:,3:4] = np.nan
+    data[:, :, 0:2] = np.nan
+    data[:, :, 4:7] = np.nan
+
+    wcs = WCS(naxis=3)
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN', 'VELO-HEL']
+
+    cube = SpectralCube(data * u.Jy / u.beam, wcs=wcs, use_dask=use_dask)
+    cube = cube.with_mask(np.isfinite(data))
+
+    # spatial_only: spectral axis is left unchanged
+    subcube = cube.minimal_subcube(spatial_only=True)
+    assert subcube.shape == (5, 5, 2)
+
+    # spectral_only: spatial axes are left unchanged
+    subcube = cube.minimal_subcube(spectral_only=True)
+    assert subcube.shape == (3, 6, 7)
+
+    # spatial_only and spectral_only are mutually exclusive
+    with pytest.raises(ValueError,
+                       match="Only one of spatial_only and spectral_only"):
+        cube.minimal_subcube(spatial_only=True, spectral_only=True)
+
+
 def test_minimal_subcube_nomask(use_dask):
 
     if not use_dask:
