@@ -31,15 +31,35 @@ class LowerDimensionalObject(u.Quantity, BaseNDClass, HeaderMixinClass):
     Generic class for 1D and 2D objects.
     """
 
+    # Subclasses (Projection/Slice, OneDSpectrum) set this to the
+    # dimensionality that their WCS and metadata describe.  Results of
+    # operations with any other dimensionality (e.g., reductions like
+    # ``.max()``) cannot be valid LDOs, so they are degraded to plain
+    # `~astropy.units.Quantity` objects.
+    # See https://github.com/radio-astro-tools/spectral-cube/issues/837
+    # and https://github.com/radio-astro-tools/spectral-cube/issues/851
+    _expected_ndim = None
+
     def _new_view(self, obj=None, unit=None, finalize=True, **kwargs):
         """
         kwargs are passed to _new_view of other object; only known keyword as of June 2023 is ``propagate_info``
         """
         # FORCE finalization to hack around https://github.com/astropy/astropy/issues/14514#issuecomment-1463935711
         try:
-            return super(LowerDimensionalObject, self)._new_view(obj=obj, unit=unit, finalize=True, **kwargs)
+            view = super(LowerDimensionalObject, self)._new_view(obj=obj, unit=unit, finalize=True, **kwargs)
         except TypeError:
-            return super(LowerDimensionalObject, self)._new_view(obj=obj, unit=unit, **kwargs)
+            view = super(LowerDimensionalObject, self)._new_view(obj=obj, unit=unit, **kwargs)
+
+        if (isinstance(view, LowerDimensionalObject) and
+                view._expected_ndim is not None and
+                view.ndim != view._expected_ndim):
+            # Reductions (e.g., ``proj.max()``, ``np.nansum(slc)``) and other
+            # shape-changing operations produce arrays whose dimensionality
+            # no longer matches the WCS/mask/metadata of this class, so
+            # return a plain Quantity instead (the view retains its unit).
+            return view.view(u.Quantity)
+
+        return view
 
     @property
     def hdu(self):
@@ -245,6 +265,8 @@ class LowerDimensionalObject(u.Quantity, BaseNDClass, HeaderMixinClass):
 
 class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
                  MaskableArrayMixinClass, BeamMixinClass):
+
+    _expected_ndim = 2
 
     def __new__(cls, value, unit=None, dtype=None, copy=True, wcs=None,
                 meta=None, mask=None, header=None, beam=None,
@@ -584,6 +606,8 @@ class BaseOneDSpectrum(LowerDimensionalObject, MaskableArrayMixinClass,
     """
     Properties shared between OneDSpectrum and VaryingResolutionOneDSpectrum.
     """
+
+    _expected_ndim = 1
 
     def __new__(cls, value, unit=None, dtype=None, copy=True, wcs=None,
                 meta=None, mask=None, header=None, spectral_unit=None,

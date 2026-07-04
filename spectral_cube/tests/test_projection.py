@@ -59,6 +59,65 @@ def test_slices_of_projections_not_projections(LDO, data):
     assert not isinstance(p[0], LDO)
 
 @pytest.mark.parametrize(('LDO', 'data'),
+                         zip(LDOs, data_two))
+def test_reductions_return_quantity(LDO, data):
+    # regression test for #837
+    # reductions of LDOs should return plain Quantities, not
+    # zero-dimensional LDOs carrying (invalid) WCS/mask/meta
+    p = LDO(data, copy=False)
+
+    for method in ('min', 'max', 'mean', 'sum', 'std'):
+        result = getattr(p, method)()
+        assert type(result) is u.Quantity
+        assert not isinstance(result, LDO)
+        assert result.ndim == 0
+
+    # numpy functions should degrade to Quantity too
+    result = np.nanmax(p)
+    assert type(result) is u.Quantity
+
+@pytest.mark.parametrize(('LDO', 'data'),
+                         zip(LDOs_2d, data_two_2d))
+def test_axis_reductions_return_quantity(LDO, data):
+    # regression test for #837
+    # reductions along an axis change dimensionality, so they cannot remain
+    # 2D LDOs either
+    p = LDO(data, copy=False)
+
+    result = p.max(axis=0)
+    assert type(result) is u.Quantity
+    assert not isinstance(result, LDO)
+    assert result.ndim == 1
+
+@pytest.mark.parametrize(('LDO', 'data'),
+                         zip(LDOs, data_two))
+def test_reduction_comparison_consistency(LDO, data):
+    # regression test for #851
+    # comparison operators on reduction results must be self-consistent
+    p = LDO(data * 0, copy=False)
+
+    mx = p.max()
+
+    assert mx == 0 * u.Jy
+    assert mx <= 0 * u.Jy
+    assert mx >= 0 * u.Jy
+    assert not (mx < 0 * u.Jy)
+    assert not (mx > 0 * u.Jy)
+    assert not (mx != 0 * u.Jy)
+
+def test_cube_slice_reduction_returns_quantity(data_adv, use_dask):
+    # regression test for #837: cube[0].max() should match cube.max() in type
+    cube, data = cube_and_raw(data_adv, use_dask=use_dask)
+
+    slc = cube[0]
+    assert isinstance(slc, Slice)
+
+    result = slc.max()
+    assert type(result) is u.Quantity
+    assert not isinstance(result, Slice)
+    assert_allclose(result, np.nanmax(data[0]) * cube.unit)
+
+@pytest.mark.parametrize(('LDO', 'data'),
                          zip(LDOs_2d, data_twelve_2d))
 def test_copy_false(LDO, data):
     # copy the data so we can manipulate inplace without affecting other tests
