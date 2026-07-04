@@ -177,7 +177,8 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                        HeaderMixinClass):
 
     def __init__(self, data, wcs, mask=None, meta=None, fill_value=np.nan,
-                 header=None, allow_huge_operations=False, wcs_tolerance=0.0):
+                 header=None, allow_huge_operations=False, wcs_tolerance=0.0,
+                 huge_operation_threshold=None):
 
         # Deal with metadata first because it can affect data reading
         self._meta = meta or {}
@@ -231,6 +232,12 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
 
         self.allow_huge_operations = allow_huge_operations
 
+        # The number of pixels above which the cube is considered "huge" and
+        # whole-cube operations are disallowed unless
+        # ``allow_huge_operations`` is set.  ``None`` (the default) means the
+        # package-wide default, ``cube_utils.MEMORY_THRESHOLD``, is used.
+        self.huge_operation_threshold = huge_operation_threshold
+
         self._cache = {}
 
     @property
@@ -281,6 +288,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         cube = self.__class__(data=data, wcs=wcs, mask=mask, meta=meta,
                               fill_value=fill_value, header=self._header,
                               allow_huge_operations=self.allow_huge_operations,
+                              huge_operation_threshold=self.huge_operation_threshold,
                               wcs_tolerance=wcs_tolerance or self._wcs_tolerance,
                               **kwargs)
         cube._spectral_unit = spectral_unit
@@ -2956,7 +2964,11 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                                  "machine's memory for large cubes.  Either "
                                  "set ``use_memmap=True`` or set "
                                  "``cube.allow_huge_operations=True`` to "
-                                 "override this restriction.")
+                                 "override this restriction.  The threshold "
+                                 "above which a cube is considered \"huge\" "
+                                 "can be changed by setting "
+                                 "``cube.huge_operation_threshold`` to a "
+                                 "number of pixels.")
             outcube = np.empty(shape=self.shape, dtype=float)
 
         if num_cores == 1 and parallel:
@@ -4231,6 +4243,7 @@ class VaryingResolutionSpectralCube(BaseSpectralCube, MultiBeamMixinClass):
                                meta=self.meta, fill_value=self.fill_value,
                                header=self.header,
                                allow_huge_operations=self.allow_huge_operations,
+                               huge_operation_threshold=self.huge_operation_threshold,
                                beam=beam,
                                wcs_tolerance=self._wcs_tolerance)
 

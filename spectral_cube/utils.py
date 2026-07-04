@@ -51,16 +51,27 @@ def warn_slow(function):
         loads_whole_cube = not (kwargs.get('how') in ('slice', 'ray'))
 
         if self._is_huge and not self.allow_huge_operations and loads_whole_cube:
+            from .cube_utils import MEMORY_THRESHOLD
+            threshold = (self.huge_operation_threshold
+                         if getattr(self, 'huge_operation_threshold', None) is not None
+                         else MEMORY_THRESHOLD)
             warn_message = ("This function ({0}) requires loading the entire "
                             "cube into memory, and the cube is large ({1} "
-                            "pixels), so by default we disable this operation. "
+                            "pixels > huge_operation_threshold={2:.0f} pixels), "
+                            "so by default we disable this operation. "
                             "To enable the operation, set "
-                            "`cube.allow_huge_operations=True` and try again.  ").format(str(function), self.size)
+                            "`cube.allow_huge_operations=True` and try again.  ").format(
+                                str(function), self.size, threshold)
 
             if warn_how:
                 warn_message += ("Alternatively, you may want to consider using an "
                                  "approach that does not load the whole cube into "
                                  "memory by specifying how='slice' or how='ray'.  ")
+            else:
+                warn_message += ("Alternatively, you may want to consider using a "
+                                 "dask-backed cube (e.g., "
+                                 "``SpectralCube.read(..., use_dask=True)``), which "
+                                 "can process the data in chunks.  ")
 
             warn_message += ("See {bigdataurl} for details.".format(bigdataurl=bigdataurl))
 

@@ -136,6 +136,49 @@ def test_huge_disallowed(data_vda_jybeam_lower, use_dask):
         del cube
 
 
+def test_huge_operation_threshold(data_vda_jybeam_lower, use_dask):
+    # Regression test for #781: the "huge cube" threshold should be
+    # configurable per-cube via the ``huge_operation_threshold`` attribute.
+
+    cube, data = cube_and_raw(data_vda_jybeam_lower, use_dask=use_dask)
+
+    # by default, the per-cube threshold is unset and the module-level
+    # default (much bigger than this small test cube) applies
+    assert cube.huge_operation_threshold is None
+    assert not cube._is_huge
+
+    # setting a tiny per-cube threshold makes this small cube "huge"
+    cube.huge_operation_threshold = 10
+    assert cube.size > 10
+    assert cube._is_huge
+
+    # the threshold propagates to derived cubes (like allow_huge_operations)
+    newcube = cube.with_fill_value(0)
+    assert newcube.huge_operation_threshold == 10
+    assert newcube._is_huge
+
+    if not use_dask:
+        with pytest.raises(ValueError, match='entire cube into memory'):
+            cube + 5 * cube.unit
+
+        with pytest.raises(ValueError, match='entire cube into memory'):
+            newcube.max(how='cube')
+
+        cube.allow_huge_operations = True
+
+        # just make sure it doesn't fail
+        cube + 5 * cube.unit
+
+        cube.allow_huge_operations = False
+
+    # un-setting the per-cube threshold restores the default behavior
+    cube.huge_operation_threshold = None
+    assert not cube._is_huge
+
+    # just make sure it doesn't fail
+    cube + 5 * cube.unit
+
+
 class BaseTest(object):
 
     @pytest.fixture(autouse=True)

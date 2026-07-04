@@ -268,7 +268,19 @@ class SliceIndexer(object):
 MEMORY_THRESHOLD=1e8
 
 def is_huge(cube):
-    if cube.size < MEMORY_THRESHOLD:  # smallish
+    """
+    Determine whether the cube is "huge", i.e., large enough that operations
+    requiring the whole cube to be loaded into memory should be disabled by
+    default.
+
+    The threshold (in pixels) is the cube's ``huge_operation_threshold``
+    attribute if that is set (not None), otherwise the module-level default
+    ``spectral_cube.cube_utils.MEMORY_THRESHOLD``.
+    """
+    threshold = getattr(cube, 'huge_operation_threshold', None)
+    if threshold is None:
+        threshold = MEMORY_THRESHOLD
+    if cube.size < threshold:  # smallish
         return False
     else:
         return True
