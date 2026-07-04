@@ -805,6 +805,25 @@ class TestNumpyMethods(BaseTest):
 
         self.c = self.d = None
 
+    @pytest.mark.parametrize('method', ('argmax_world', 'argmin_world'))
+    def test_arg_world_size1(self, method, data_adv, use_dask):
+        # Regression test for #982: argmax_world/argmin_world failed with an
+        # IndexError when the cube has a size-1 spatial dimension because the
+        # size-1 axis was dropped when converting to world coordinates.
+        c1, d1 = cube_and_raw(data_adv, use_dask=use_dask)
+
+        for view in [np.s_[:, :1, :], np.s_[:, :, :1], np.s_[:, :1, :1]]:
+            subcube = c1[view]
+
+            arg0_world = getattr(subcube, method)(axis=0)
+            assert arg0_world.shape == subcube.shape[1:]
+
+            # Values should match those from the full cube.
+            full_arg0_world = getattr(c1, method)(axis=0)
+            assert_allclose(arg0_world, full_arg0_world[view[1:]])
+
+        self.c = self.d = None
+
 class TestSlab(BaseTest):
 
     def test_closest_spectral_channel(self):

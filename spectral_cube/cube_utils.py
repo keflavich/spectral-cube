@@ -550,7 +550,10 @@ def world_take_along_axis(cube, position_plane, axis):
 
     out = np.take_along_axis(world_coords[world_newaxis],
                              position_plane[plane_newaxis], axis=axis)
-    out = out.squeeze()
+    # Drop the (length-1) collapsed axis only; a full `squeeze` would also
+    # remove spatial axes that happen to have a size of 1
+    # (see https://github.com/radio-astro-tools/spectral-cube/issues/982).
+    out = np.squeeze(out, axis=axis)
 
     return out
 
