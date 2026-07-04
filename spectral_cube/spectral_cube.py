@@ -176,6 +176,16 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                        SpectralAxisMixinClass, SpatialCoordMixinClass,
                        HeaderMixinClass):
 
+    # Tell numpy (and astropy Quantity, which is an ndarray subclass) not to
+    # attempt to apply ufuncs to (i.e., iterate/broadcast over) the cube.
+    # This makes expressions like ``5 * u.km * cube`` defer to the cube's
+    # reflected operators (``__rmul__`` etc.) instead of silently returning a
+    # plain array/Quantity (see issue #839).  A side effect is that calling a
+    # numpy ufunc directly on a cube (e.g. ``np.multiply(cube, 5)``) raises a
+    # TypeError; use the cube arithmetic operators or
+    # ``cube._apply_everywhere`` instead.
+    __array_ufunc__ = None
+
     def __init__(self, data, wcs, mask=None, meta=None, fill_value=np.nan,
                  header=None, allow_huge_operations=False, wcs_tolerance=0.0):
 
@@ -953,6 +963,12 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         # (we calculate the appropriate unit above and pass it on below)
         if hasattr(data, 'unit'):
             data = data.value
+        elif hasattr(data, '_meta') and hasattr(data._meta, 'unit'):
+            # dask arrays store their chunk type in ``_meta``; if a Quantity
+            # was one of the operands, the chunks are Quantity objects
+            # carrying (part of) the unit, which must be stripped because
+            # the full output unit is tracked in ``new_unit`` (issue #839)
+            data = data.map_blocks(lambda block: np.asarray(block))
 
         return self._new_cube_with(data=data, unit=new_unit)
 
@@ -2301,6 +2317,10 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                                           keepunit=False)
             return self._apply_everywhere(operator.add, value, check_units=False)
 
+    def __radd__(self, value):
+        # addition is commutative: value + cube == cube + value
+        return self.__add__(value)
+
     @warn_slow
     def __sub__(self, value):
         if isinstance(value, BaseSpectralCube):
@@ -2310,12 +2330,23 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                                           tofrom='from', keepunit=False)
             return self._apply_everywhere(operator.sub, value, check_units=False)
 
+    def __rsub__(self, value):
+        # reflected subtraction: value - cube
+        value = self._val_to_own_unit(value, operation='subtract',
+                                      tofrom='from', keepunit=False)
+        return self._apply_everywhere(lambda data: operator.sub(value, data),
+                                      check_units=False)
+
     @warn_slow
     def __mul__(self, value):
         if isinstance(value, BaseSpectralCube):
             return self._cube_on_cube_operation(operator.mul, value)
         else:
             return self._apply_everywhere(operator.mul, value)
+
+    def __rmul__(self, value):
+        # multiplication is commutative: value * cube == cube * value
+        return self.__mul__(value)
 
     @warn_slow
     def __truediv__(self, value):
@@ -2327,6 +2358,13 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
             return self._cube_on_cube_operation(operator.truediv, value)
         else:
             return self._apply_everywhere(operator.truediv, value)
+
+    def __rtruediv__(self, value):
+        return self.__rdiv__(value)
+
+    def __rdiv__(self, value):
+        # reflected division: value / cube
+        return self._apply_everywhere(lambda data: operator.truediv(value, data))
 
     @warn_slow
     def __floordiv__(self, value):

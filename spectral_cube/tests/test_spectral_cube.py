@@ -567,6 +567,95 @@ class TestArithmetic(object):
         assert c2.unit == u.K
         self.c1 = self.d1 = None
 
+    # regression tests for #839: reflected operations (with the cube on the
+    # right-hand side) must return the same result as the forward operations
+    # instead of raising a TypeError (scalar case) or letting numpy/astropy
+    # broadcast over the cube and return a plain Quantity (quantity case)
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_radd(self, value):
+        d2 = value + self.d1
+        c2 = value * u.K + self.c1
+        assert type(c2) is type(self.c1)
+        assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.K
+
+        with pytest.raises(ValueError,
+                           match="Can only add cube objects from SpectralCubes or Quantities with a unit attribute."):
+            # c1 is something with Kelvin units, but you can't add a scalar
+            _ = value + self.c1
+
+        with pytest.raises(u.UnitConversionError,
+                           match=re.escape("'Jy' (spectral flux density) and 'K' (temperature) are not convertible")):
+            _ = value * u.Jy + self.c1
+
+        self.c1 = self.d1 = None
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_rsub(self, value):
+        d2 = value - self.d1
+        c2 = value * u.K - self.c1
+        assert type(c2) is type(self.c1)
+        assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.K
+
+        # regression test #251: the _data attribute must not be a quantity
+        assert not hasattr(c2._data, 'unit')
+
+        with pytest.raises(ValueError,
+                           match="Can only subtract cube objects from SpectralCubes or Quantities with a unit attribute."):
+            _ = value - self.c1
+
+        self.c1 = self.d1 = None
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_rmul(self, value):
+        d2 = value * self.d1
+        c2 = value * self.c1
+        assert type(c2) is type(self.c1)
+        assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.K
+        self.c1 = self.d1 = None
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_rmul_quantity(self, value):
+        # regression test #839: 5*u.km * cube silently returned a Quantity
+        d2 = value * self.d1
+        c2 = value * u.km * self.c1
+        assert type(c2) is type(self.c1)
+        assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.km * u.K
+
+        # regression test #251: the _data attribute must not be a quantity
+        assert not hasattr(c2._data, 'unit')
+
+        self.c1 = self.d1 = None
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_rdiv(self, value):
+        with np.errstate(divide='ignore'):
+            d2 = value / self.d1
+            c2 = value / self.c1
+            assert type(c2) is type(self.c1)
+            assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.K ** -1
+        self.c1 = self.d1 = None
+
+    @pytest.mark.parametrize(('value'), (1, 1.0, 2, 2.0))
+    def test_rdiv_quantity(self, value):
+        # regression test #839: quantity / cube silently returned a Quantity
+        with np.errstate(divide='ignore'):
+            d2 = value / self.d1
+            c2 = value * u.km / self.c1
+            assert type(c2) is type(self.c1)
+            assert np.all(d2 == c2.filled_data[:].value)
+        assert c2.unit == u.km / u.K
+
+        # regression test #251: the _data attribute must not be a quantity
+        assert not hasattr(c2._data, 'unit')
+
+        self.c1 = self.d1 = None
+
 
 
 class TestFilters(BaseTest):
