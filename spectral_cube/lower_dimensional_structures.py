@@ -410,40 +410,54 @@ class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
 
         return self
 
-    def quicklook(self, filename=None, use_aplpy=True, aplpy_kwargs={}):
+    def quicklook(self, filename=None, use_aplpy=None, aplpy_kwargs=None,
+                  **kwargs):
         """
-        Use `APLpy <https://pypi.python.org/pypi/APLpy>`_ to make a quick-look
-        image of the projection. This will make the ``FITSFigure`` attribute
-        available.
+        Make a quick-look image of the projection using
+        `astropy.visualization.wcsaxes` (i.e., a matplotlib axis with
+        ``projection=self.wcs``).  This makes the ``figure``, ``ax``, and
+        ``image`` attributes available.
 
-        If there are unmatched celestial axes, this will instead show an image
-        without axis labels.
+        If the WCS cannot be used (e.g., if there are unmatched celestial
+        axes), this will instead show an image without axis labels.
 
         Parameters
         ----------
-        filename : str or Non
+        filename : str or None
             Optional - the filename to save the quicklook to.
+        use_aplpy : bool, optional
+            Deprecated and has no effect; quicklooks are now always made with
+            `astropy.visualization.wcsaxes` instead of APLpy.
+        aplpy_kwargs : dict, optional
+            Deprecated and has no effect.
+        kwargs : dict
+            Passed to `~matplotlib.axes.Axes.imshow`.
         """
-        if use_aplpy:
-            try:
-                if not hasattr(self, 'FITSFigure'):
-                    import aplpy
-                    self.FITSFigure = aplpy.FITSFigure(self.hdu,
-                                                       **aplpy_kwargs)
+        if use_aplpy is not None or aplpy_kwargs is not None:
+            warnings.warn("The 'use_aplpy' and 'aplpy_kwargs' keywords are "
+                          "deprecated and have no effect; quicklooks are now "
+                          "always made with astropy.visualization.wcsaxes.",
+                          DeprecationWarning)
 
-                self.FITSFigure.show_grayscale()
-                self.FITSFigure.add_colorbar()
-                if filename is not None:
-                    self.FITSFigure.save(filename)
-            except (wcs.InconsistentAxisTypesError, ImportError):
-                self._quicklook_mpl(filename=filename)
-        else:
-            self._quicklook_mpl(filename=filename)
+        try:
+            from matplotlib import pyplot
+            self.figure = pyplot.gcf()
+            self.ax = self.figure.add_subplot(projection=self.wcs)
+            self.image = self.ax.imshow(self.value, **kwargs)
+            self.ax.set_xlabel(self.wcs.wcs.ctype[0].split('-')[0])
+            self.ax.set_ylabel(self.wcs.wcs.ctype[1].split('-')[0])
+            cb = self.figure.colorbar(self.image, ax=self.ax)
+            if self.unit is not None:
+                cb.set_label(self.unit.to_string())
+            if filename is not None:
+                self.figure.savefig(filename)
+        except wcs.InconsistentAxisTypesError:
+            self._quicklook_mpl(filename=filename, **kwargs)
 
-    def _quicklook_mpl(self, filename=None):
+    def _quicklook_mpl(self, filename=None, **kwargs):
         from matplotlib import pyplot
         self.figure = pyplot.gcf()
-        self.image = pyplot.imshow(self.value)
+        self.image = pyplot.imshow(self.value, **kwargs)
         if filename is not None:
             self.figure.savefig(filename)
 

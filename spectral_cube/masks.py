@@ -9,7 +9,6 @@ from numpy.lib.stride_tricks import as_strided
 import dask.array as da
 
 from astropy.wcs import InconsistentAxisTypesError
-from astropy.io import fits
 
 from . import wcs_utils
 from .utils import WCSWarning, ArrayWrapper
@@ -269,10 +268,14 @@ class MaskBase(object):
         raise NotImplementedError("Slicing not supported by mask class {0}"
                                   .format(self.__class__.__name__))
 
-    def quicklook(self, view, wcs=None, filename=None, use_aplpy=True,
-                  aplpy_kwargs={}):
+    def quicklook(self, view, wcs=None, filename=None, use_aplpy=None,
+                  aplpy_kwargs=None, **kwargs):
         '''
         View a 2D slice of the mask, specified by view.
+
+        The plot is made with `astropy.visualization.wcsaxes` (i.e., a
+        matplotlib axis with ``projection=wcs``) if a WCS is given, and with
+        a plain matplotlib axis otherwise.
 
         Parameters
         ----------
@@ -283,37 +286,37 @@ class MaskBase(object):
         filename : str, optional
             Filename of the output image. Enables saving of the plot.
         use_aplpy : bool, optional
-            Try plotting with the aplpy package
+            Deprecated and has no effect; quicklooks are now always made
+            with `astropy.visualization.wcsaxes` instead of APLpy.
         aplpy_kwargs : dict, optional
-            kwargs passed to `~aplpy.FITSFigure`.
+            Deprecated and has no effect.
+        kwargs : dict
+            Passed to `~matplotlib.axes.Axes.imshow`.
         '''
+        if use_aplpy is not None or aplpy_kwargs is not None:
+            warnings.warn("The 'use_aplpy' and 'aplpy_kwargs' keywords are "
+                          "deprecated and have no effect; quicklooks are now "
+                          "always made with astropy.visualization.wcsaxes.",
+                          DeprecationWarning)
 
         view_twod = self.include(view=view, wcs=wcs)
 
-        if use_aplpy:
+        from matplotlib import pyplot
 
-            if wcs is not None:
-                hdu = fits.PrimaryHDU(view_twod.astype(int), wcs.to_header())
-            else:
-                hdu = fits.PrimaryHDU(view_twod.astype(int))
+        figure = pyplot.gcf()
 
+        if wcs is not None:
             try:
-                import aplpy
-                FITSFigure = aplpy.FITSFigure(hdu,
-                                              **aplpy_kwargs)
+                ax = figure.add_subplot(projection=wcs.celestial)
+            except InconsistentAxisTypesError:
+                ax = figure.add_subplot()
+        else:
+            ax = figure.add_subplot()
 
-                FITSFigure.show_grayscale()
-                FITSFigure.add_colorbar()
-                if filename is not None:
-                    FITSFigure.save(filename)
-            except (InconsistentAxisTypesError, ImportError):
-                use_aplpy = True
+        ax.imshow(view_twod, **kwargs)
 
-        if not use_aplpy:
-            from matplotlib import pyplot
-            figure = pyplot.imshow(view_twod)
-            if filename is not None:
-                figure.savefig(filename)
+        if filename is not None:
+            figure.savefig(filename)
 
     def _get_new_wcs(self, unit, velocity_convention=None, rest_value=None):
         """

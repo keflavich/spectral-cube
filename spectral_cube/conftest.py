@@ -41,7 +41,6 @@ def pytest_configure(config):
 
     PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
     PYTEST_HEADER_MODULES['regions'] = 'regions'
-    PYTEST_HEADER_MODULES['APLpy'] = 'aplpy'
 
 HEADER_FILENAME = os.path.join(os.path.dirname(__file__), 'tests',
                                'data', 'header_jybeam.hdr')

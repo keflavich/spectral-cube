@@ -8,6 +8,10 @@
 
 - Avoid deprecation warning with astropy>=8 #991
 
+- ``quicklook`` now uses ``astropy.visualization.wcsaxes`` instead of the
+  unmaintained APLpy package; the ``use_aplpy`` and ``aplpy_kwargs`` keywords
+  are deprecated and have no effect. #918
+
 0.6.5 (2023-12-05)
 ----------------------
 - Fixed issue with fix from #893 not getting included in the 0.6.4 tag

@@ -13,11 +13,16 @@ All lower-dimensional subsets,
 respectively).  These methods will plot the data with somewhat properly labeled
 axes.
 
-The two-dimensional viewers default to using `aplpy <http://aplpy.github.io/>`_.
-Because of quirks of how aplpy sets up its plotting window, these methods will
-create their own figures.  If ``use_aplpy`` is set to ``False``, and similarly
-if you use the ``OneDSpectrum`` quicklook, the data will be overplotted in the
-latest used plot window.
+The two-dimensional viewers use `astropy.visualization.wcsaxes`, i.e., a
+matplotlib axis created with ``projection=wcs``, so the data are shown with
+world coordinates.  Both the two-dimensional and the ``OneDSpectrum``
+quicklooks plot into the latest used plot window.
+
+.. note::
+
+   Older versions of spectral-cube used `aplpy <http://aplpy.github.io/>`_
+   for the two-dimensional quicklooks.  APLpy is no longer maintained, so
+   the ``use_aplpy`` keyword is deprecated and has no effect.
 
 
 In principle, one can also simply plot the data.  For example, if you have a cube,

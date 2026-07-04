@@ -57,19 +57,19 @@ and converting the data and WCS to a FITS HDU::
     >>> moment_0.hdu  # doctest: +SKIP
     <astropy.io.fits.hdu.image.PrimaryHDU at 0x10d6ec510>
 
-The conversion to HDU objects makes it very easy to use the moment map with
-plotting packages such as `aplpy <https://aplpy.github.io/>`_::
+The moment maps can be visualized with matplotlib using
+`astropy.visualization.wcsaxes`::
 
-    >>> import aplpy  # doctest: +SKIP
-    >>> f = aplpy.FITSFigure(moment_0.hdu)  # doctest: +SKIP
-    >>> f.show_colorscale()  # doctest: +SKIP
-    >>> f.save('moment_0.png')  # doctest: +SKIP
+    >>> import matplotlib.pyplot as plt  # doctest: +SKIP
+    >>> ax = plt.subplot(projection=moment_0.wcs)  # doctest: +SKIP
+    >>> im = ax.imshow(moment_0.value)  # doctest: +SKIP
+    >>> plt.savefig('moment_0.png')  # doctest: +SKIP
 
-There is a shortcut for the above, if you have aplpy_ installed::
+There is a shortcut for the above::
 
-    >>> moment_0.quicklook('moment_0.png')
+    >>> moment_0.quicklook('moment_0.png')  # doctest: +SKIP
 
-will create the quicklook grayscale image and save it to a png all in one go.
+will create the quicklook image and save it to a png all in one go.
 
 Moment map equations
 ^^^^^^^^^^^^^^^^^^^^
