@@ -961,6 +961,15 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         Apply an operation between two cubes.  Inherits the metadata of the
         left cube.
 
+        Units do not need to be equivalent for this to succeed: additive
+        operations (add, subtract) still require equivalent units (e.g., you
+        cannot add a K cube to a Jy/beam cube), but multiplicative operations
+        (multiply, divide, power) are allowed between cubes with different,
+        non-equivalent units, since their units simply combine algebraically
+        (e.g., a Jy/beam cube multiplied by a dimensionless weight cube
+        yields a Jy/beam cube).  ``astropy.units`` enforces this distinction
+        for us via the ``test_result`` computation below.
+
         Parameters
         ----------
         function : function
@@ -973,32 +982,34 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
             Passed to np.testing.assert_almost_equal
         """
         assert cube.shape == self.shape
-        if not self.unit.is_equivalent(cube.unit, equivalencies=equivalencies):
-            raise u.UnitsError("{0} is not equivalent to {1}"
-                               .format(self.unit, cube.unit))
         if not wcs_utils.check_equality(self.wcs, cube.wcs, warn_missing=True,
                                         **kwargs):
             warnings.warn("Cube WCSs do not match, but their shapes do",
                           WCSMismatchWarning)
+
+        if self.unit.is_equivalent(cube.unit, equivalencies=equivalencies):
+            # units are directly comparable (e.g., both K, or Jy and mJy):
+            # convert the second cube into the first cube's units before
+            # combining the underlying data arrays
+            cube = cube.to(self.unit)
+
         try:
             test_result = function(np.ones([1,1,1])*self.unit,
-                                   np.ones([1,1,1])*self.unit)
+                                   np.ones([1,1,1])*cube.unit)
             # First, check that function returns same # of dims?
             assert test_result.shape == (1,1,1)
+        except u.UnitsError:
+            # units are not equivalent and the operation requires them to be
+            # (e.g., adding a K cube to a dimensionless cube)
+            raise
         except Exception as ex:
             raise AssertionError("Function {1} could not be applied to a "
                                  "pair of simple "
                                  "cube.  The error was: {0}".format(ex,
                                                                     function))
 
-        cube = cube.to(self.unit)
         data = function(self._data, cube._data)
-        try:
-            # multiplication, division, etc. are valid inter-unit operations
-            unit = function(self.unit, cube.unit)
-        except TypeError:
-            # addition, subtraction are not
-            unit = self.unit
+        unit = test_result.unit
 
         return self._new_cube_with(data=data, unit=unit)
 
