@@ -961,7 +961,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         Apply an operation between two cubes.  Inherits the metadata of the
         left cube.
 
-        Units do not need to be equivalent for this to succeed: additive
+        Units do not need to be equivalent for some operations: additive
         operations (add, subtract) still require equivalent units (e.g., you
         cannot add a K cube to a Jy/beam cube), but multiplicative operations
         (multiply, divide, power) are allowed between cubes with different,
