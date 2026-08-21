@@ -968,7 +968,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         non-equivalent units, since their units simply combine algebraically
         (e.g., a Jy/beam cube multiplied by a dimensionless weight cube
         yields a Jy/beam cube).  ``astropy.units`` enforces this distinction
-        for us via the ``test_result`` computation below.
+        via the ``test_result`` computation below.
 
         Parameters
         ----------
