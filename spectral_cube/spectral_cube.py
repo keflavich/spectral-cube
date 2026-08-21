@@ -962,7 +962,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         left cube.
 
         Units do not need to be equivalent for some operations: additive
-        operations (add, subtract) still require equivalent units (e.g., you
+        operations (add, subtract) require equivalent units (e.g., you
         cannot add a K cube to a Jy/beam cube), but multiplicative operations
         (multiply, divide, power) are allowed between cubes with different,
         non-equivalent units, since their units simply combine algebraically
