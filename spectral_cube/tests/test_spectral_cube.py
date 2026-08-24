@@ -1760,6 +1760,18 @@ def test_basic_unit_conversion(data_advs, use_dask):
                                     1e3))
 
 
+def test_basic_unit_conversion_preserves_dtype(data_advs, use_dask):
+    # regression test for #995: cube.to() should not silently upcast
+    # float32 data to float64, which effectively doubles the memory
+    # footprint of the cube
+    cube, data = cube_and_raw(data_advs, use_dask=use_dask)
+    cube = cube._new_cube_with(data=cube._data.astype('float32'))
+    assert cube._data.dtype == np.float32
+
+    mKcube = cube.to(u.mK)
+    assert mKcube._data.dtype == np.float32
+
+
 def test_basic_unit_conversion_beams(data_vda_beams, use_dask):
     cube, data = cube_and_raw(data_vda_beams, use_dask=use_dask)
     cube._unit = u.K # want beams, but we want to force the unit to be something non-beamy
@@ -1772,6 +1784,19 @@ def test_basic_unit_conversion_beams(data_vda_beams, use_dask):
     np.testing.assert_almost_equal(mKcube.filled_data[:].value,
                                    (cube.filled_data[:].value *
                                     1e3))
+
+
+def test_basic_unit_conversion_beams_preserves_dtype(data_vda_beams, use_dask):
+    # regression test for #995, for the per-channel-beam (VaryingResolution)
+    # code path's to() implementation
+    cube, data = cube_and_raw(data_vda_beams, use_dask=use_dask)
+    cube._unit = u.K
+    cube._meta['BUNIT'] = 'K'
+    cube = cube._new_cube_with(data=cube._data.astype('float32'))
+    assert cube._data.dtype == np.float32
+
+    mKcube = cube.to(u.mK)
+    assert mKcube._data.dtype == np.float32
 
 def test_unit_conversion_brightness_temperature_without_beam(data_adv, use_dask):
     cube, data = cube_and_raw(data_adv, use_dask=use_dask)
@@ -2253,6 +2278,40 @@ def test_convolve_to_with_bad_beams(data_vda_beams, use_dask):
 
     # this is a copout test; should really check for correctness...
     assert np.all(np.isfinite(convolved.filled_data[1:3]))
+
+
+def test_convolve_to_preserves_dtype(data_vda, use_dask):
+    # regression test for #995: convolve_to (and other operations built on
+    # apply_function_parallel_spatial) should not silently upcast float32
+    # data to float64, which effectively doubles the memory footprint
+    cube, data = cube_and_raw(data_vda, use_dask=use_dask)
+    cube = cube._new_cube_with(data=cube._data.astype('float32'))
+    assert cube._data.dtype == np.float32
+
+    target_beam = Beam(cube.beam.major * 2, cube.beam.minor * 2, cube.beam.pa)
+
+    convolved = cube.convolve_to(target_beam)
+    assert convolved._data.dtype == np.float32
+
+    if use_dask:
+        # explicitly request the FFT-based convolution, which internally
+        # computes in float64 and previously leaked that dtype through to
+        # the output even for a float32 input
+        from astropy.convolution import convolve_fft
+        convolved_fft = cube.convolve_to(target_beam, convolve=convolve_fft)
+        assert convolved_fft._data.dtype == np.float32
+
+
+def test_convolve_to_multibeam_preserves_dtype(data_vda_beams, use_dask):
+    # regression test for #995, for the per-channel-beam (VaryingResolution)
+    # code path, which allocated its output array as float64 regardless of
+    # the input dtype
+    cube, data = cube_and_raw(data_vda_beams, use_dask=use_dask)
+    cube = cube._new_cube_with(data=cube._data.astype('float32'))
+    assert cube._data.dtype == np.float32
+
+    convolved = cube.convolve_to(Beam(0.5 * u.arcsec))
+    assert convolved._data.dtype == np.float32
 
 
 def test_jybeam_factors(data_vda_beams, use_dask):

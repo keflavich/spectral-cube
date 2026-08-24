@@ -1454,7 +1454,12 @@ class DaskSpectralCube(DaskSpectralCubeMixin, SpectralCube):
 
         # See #631: kwargs get passed within self.apply_function_parallel_spatial
         def convfunc(img, **kwargs):
-            return convolve(img, kernel, normalize_kernel=True, **kwargs).reshape(img.shape) * beam_ratio_factor
+            # some convolution functions (e.g., convolve_fft) upcast to
+            # float64 regardless of the input dtype (see #995); cast back
+            # to avoid silently inflating the cube in memory
+            convolved = convolve(img, kernel, normalize_kernel=True, **kwargs)
+            result = convolved.reshape(img.shape) * beam_ratio_factor
+            return result.astype(img.dtype, copy=False)
 
         if convolve is convolution.convolve_fft and 'allow_huge' not in kwargs:
             kwargs['allow_huge'] = self.allow_huge_operations

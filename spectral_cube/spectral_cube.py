@@ -2605,11 +2605,16 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         # (I don't think this should have to be special cased, but I don't know
         # how to manipulate broadcasting rules any other way)
         if hasattr(factor, '__len__') and len(factor) == len(self):
-            return self._new_cube_with(data=self._data*factor[:,None,None],
-                                       unit=unit)
+            data = self._data*factor[:,None,None]
         else:
-            return self._new_cube_with(data=self._data*factor,
-                                       unit=unit)
+            data = self._data*factor
+
+        # the unit conversion factor is computed in double precision, which
+        # would otherwise silently inflate, e.g., float32 cubes to float64
+        # (see #995)
+        data = data.astype(self._data.dtype, copy=False)
+
+        return self._new_cube_with(data=data, unit=unit)
 
 
     def find_lines(self, velocity_offset=None, velocity_convention=None,
@@ -2961,7 +2966,8 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
 
         if use_memmap:
             ntf = tempfile.NamedTemporaryFile(dir=memmap_dir)
-            outcube = np.memmap(ntf, mode='w+', shape=self.shape, dtype=float)
+            outcube = np.memmap(ntf, mode='w+', shape=self.shape,
+                                dtype=self._data.dtype)
         else:
             if self._is_huge and not self.allow_huge_operations:
                 raise ValueError("Applying a function without ``use_memmap`` "
@@ -2971,7 +2977,7 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
                                  "set ``use_memmap=True`` or set "
                                  "``cube.allow_huge_operations=True`` to "
                                  "override this restriction.")
-            outcube = np.empty(shape=self.shape, dtype=float)
+            outcube = np.empty(shape=self.shape, dtype=self._data.dtype)
 
         if num_cores == 1 and parallel:
             warnings.warn("parallel=True was specified but num_cores=1. "
@@ -4223,7 +4229,7 @@ class VaryingResolutionSpectralCube(BaseSpectralCube, MultiBeamMixinClass):
             pb = ProgressBar(self.shape[0], desc='Convolve: ')
             update_function = pb.update
 
-        newdata = np.empty(self.shape)
+        newdata = np.empty(self.shape, dtype=self._data.dtype)
         for ii,kernel in enumerate(convolution_kernels):
 
             # load each image from a slice to avoid loading whole cube into
@@ -4272,11 +4278,16 @@ class VaryingResolutionSpectralCube(BaseSpectralCube, MultiBeamMixinClass):
         # (I don't think this should have to be special cased, but I don't know
         # how to manipulate broadcasting rules any other way)
         if hasattr(factor, '__len__') and len(factor) == len(self):
-            return self._new_cube_with(data=self._data*factor[:,None,None],
-                                       unit=unit)
+            data = self._data*factor[:,None,None]
         else:
-            return self._new_cube_with(data=self._data*factor,
-                                       unit=unit)
+            data = self._data*factor
+
+        # the unit conversion factor is computed in double precision, which
+        # would otherwise silently inflate, e.g., float32 cubes to float64
+        # (see #995)
+        data = data.astype(self._data.dtype, copy=False)
+
+        return self._new_cube_with(data=data, unit=unit)
 
     def mask_channels(self, goodchannels):
         """

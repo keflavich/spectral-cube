@@ -179,7 +179,10 @@ class LowerDimensionalObject(u.Quantity, BaseNDClass, HeaderMixinClass):
         factor = cube_utils.bunit_converters(self, unit, equivalencies=equivalencies,
                                              freq=freq)
 
-        converted_array = (self.quantity * factor).value
+        # the unit conversion factor is computed in double precision, which
+        # would otherwise silently inflate, e.g., float32 data to float64
+        # (see #995)
+        converted_array = (self.quantity * factor).value.astype(self.dtype, copy=False)
 
         # use private versions of variables, not the generated property
         # versions
