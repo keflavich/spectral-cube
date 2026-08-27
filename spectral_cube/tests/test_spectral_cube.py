@@ -528,6 +528,36 @@ class TestArithmetic(object):
         assert c2.unit == u.one
         self.c1 = self.d1 = None
 
+    def test_mul_div_unitless_cube(self):
+        # regression test for issue #1011: multiplicative operations
+        # between cubes with non-equivalent units (e.g. K and dimensionless)
+        # should be allowed, since the units combine algebraically
+        unitless = self.c1._new_cube_with(data=self.d1,
+                                          unit=u.dimensionless_unscaled)
+
+        c2 = self.c1 * unitless
+        assert np.all(c2.filled_data[:].value == self.d1 * self.d1)
+        assert c2.unit == u.K
+
+        c3 = self.c1 / unitless
+        assert np.all((c3.filled_data[:].value == self.d1 / self.d1) | (np.isnan(c3.filled_data[:])))
+        assert c3.unit == u.K
+
+        self.c1 = self.d1 = None
+
+    def test_add_sub_unitless_cube_raises(self):
+        # additive operations still require equivalent units
+        unitless = self.c1._new_cube_with(data=self.d1,
+                                          unit=u.dimensionless_unscaled)
+
+        with pytest.raises(u.UnitsError):
+            self.c1 + unitless
+
+        with pytest.raises(u.UnitsError):
+            self.c1 - unitless
+
+        self.c1 = self.d1 = None
+
     @pytest.mark.parametrize(('value'),(1,1.0,2,2.0))
     def test_floordiv(self, value):
         with pytest.raises(NotImplementedError,
