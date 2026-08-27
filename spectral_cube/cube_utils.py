@@ -748,6 +748,37 @@ def bunit_converters(obj, unit, equivalencies=(), freq=None):
         # Slice along first axis to return a 1D array.
         return factors[0]
 
+
+def convolve_fft_singleprecision_kwargs(dtype, kwargs):
+    """
+    Return kwargs for `astropy.convolution.convolve_fft` that keep the FFT
+    computation itself at single precision when the input data are
+    float32, instead of implicitly promoting to double precision.
+
+    `numpy.fft` always computes (and returns) complex128 internally,
+    regardless of the input array's dtype, so passing ``complex_dtype``
+    alone is not enough to avoid the precision (and associated memory)
+    promotion; `scipy.fft` respects the input precision, so it is
+    substituted in as well.  This roughly halves the peak memory used
+    during the FFT-based convolution for float32 cubes.  Any of these
+    settings the caller already specified in ``kwargs`` take precedence.
+    """
+    dtype = np.dtype(dtype)
+    # compare kind/itemsize rather than dtype identity: FITS data is often
+    # read in as big-endian ('>f4'), which is still single precision but
+    # would not match a strict ``== np.float32`` (native-endian) check
+    if dtype.kind != 'f' or dtype.itemsize != 4:
+        return kwargs
+
+    import scipy.fft
+
+    defaults = {'complex_dtype': np.complex64,
+                'fftn': scipy.fft.fftn,
+                'ifftn': scipy.fft.ifftn}
+    defaults.update(kwargs)
+    return defaults
+
+
 def combine_headers(header1, header2, **kwargs):
     '''
     Given two Header objects, this function returns a fits Header of the optimal wcs.

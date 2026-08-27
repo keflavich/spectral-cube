@@ -27,6 +27,7 @@ from astropy import convolution
 from astropy import wcs
 
 from . import wcs_utils
+from . import cube_utils
 from .spectral_cube import SpectralCube, VaryingResolutionSpectralCube, SIGMA2FWHM, np2wcs
 from .utils import cached, VarianceWarning, SliceWarning, BeamWarning, SmoothingWarning, BeamUnitsError, PossiblySlowWarning, ArrayWrapper
 from .lower_dimensional_structures import Projection
@@ -1454,15 +1455,19 @@ class DaskSpectralCube(DaskSpectralCubeMixin, SpectralCube):
 
         # See #631: kwargs get passed within self.apply_function_parallel_spatial
         def convfunc(img, **kwargs):
-            # some convolution functions (e.g., convolve_fft) upcast to
-            # float64 regardless of the input dtype (see #995); cast back
-            # to avoid silently inflating the cube in memory
             convolved = convolve(img, kernel, normalize_kernel=True, **kwargs)
             result = convolved.reshape(img.shape) * beam_ratio_factor
+            # belt-and-braces: convolve_fft's dtype/precision are steered via
+            # kwargs below, but guarantee the output dtype matches the input
+            # regardless (see #995)
             return result.astype(img.dtype, copy=False)
 
-        if convolve is convolution.convolve_fft and 'allow_huge' not in kwargs:
-            kwargs['allow_huge'] = self.allow_huge_operations
+        if convolve is convolution.convolve_fft:
+            if 'allow_huge' not in kwargs:
+                kwargs['allow_huge'] = self.allow_huge_operations
+            # avoid the implicit float64 promotion (and associated memory
+            # cost) that convolve_fft otherwise performs on float32 data
+            kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self._data.dtype, kwargs)
 
         return self.apply_function_parallel_spatial(convfunc,
                                                     accepts_chunks=True,
@@ -1615,6 +1620,11 @@ class DaskVaryingResolutionSpectralCube(DaskSpectralCubeMixin, VaryingResolution
                 return out
             else:
                 return img
+
+        if convolve is convolution.convolve_fft:
+            # avoid the implicit float64 promotion (and associated memory
+            # cost) that convolve_fft otherwise performs on float32 data
+            kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self._data.dtype, kwargs)
 
         # Rechunk so that there is only one chunk in the image plane
         cube = self._map_blocks_to_cube(convfunc,

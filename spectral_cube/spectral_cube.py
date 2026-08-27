@@ -3399,8 +3399,12 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
             return convolve(img, convolution_kernel, normalize_kernel=True,
                             **kwargs) * beam_ratio_factor
 
-        if convolve is convolution.convolve_fft and 'allow_huge' not in kwargs:
-            kwargs['allow_huge'] = self.allow_huge_operations
+        if convolve is convolution.convolve_fft:
+            if 'allow_huge' not in kwargs:
+                kwargs['allow_huge'] = self.allow_huge_operations
+            # avoid the implicit float64 promotion (and associated memory
+            # cost) that convolve_fft otherwise performs on float32 data
+            kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self._data.dtype, kwargs)
 
         newcube = self.apply_function_parallel_spatial(convfunc,
                                                        **kwargs).with_beam(beam, raise_error_jybm=False)
@@ -4228,6 +4232,11 @@ class VaryingResolutionSpectralCube(BaseSpectralCube, MultiBeamMixinClass):
         if update_function is None:
             pb = ProgressBar(self.shape[0], desc='Convolve: ')
             update_function = pb.update
+
+        if convolve is convolution.convolve_fft:
+            # avoid the implicit float64 promotion (and associated memory
+            # cost) that convolve_fft otherwise performs on float32 data
+            kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self._data.dtype, kwargs)
 
         newdata = np.empty(self.shape, dtype=self._data.dtype)
         for ii,kernel in enumerate(convolution_kernels):
