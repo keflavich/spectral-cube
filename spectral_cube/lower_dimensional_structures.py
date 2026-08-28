@@ -486,9 +486,18 @@ class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
         convolution_kernel = \
             beam.deconvolve(self.beam).as_kernel(pixscale)
 
+        if convolve is convolution.convolve_fft:
+            # avoid the implicit float64 promotion (and associated memory
+            # cost) that convolve_fft otherwise performs on float32 data
+            kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self.dtype, kwargs)
+
         newdata = convolve(self.value, convolution_kernel,
                            normalize_kernel=True,
                            **kwargs)
+        # belt-and-braces: convolve_fft's dtype/precision are steered via
+        # kwargs above, but guarantee the output dtype matches the input
+        # regardless (see #995)
+        newdata = newdata.astype(self.dtype, copy=False)
 
         self = Projection(newdata, unit=self.unit, wcs=self.wcs,
                           meta=self.meta, header=self.header,

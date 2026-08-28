@@ -2302,6 +2302,23 @@ def test_convolve_to_preserves_dtype(data_vda, use_dask):
         assert convolved_fft._data.dtype == np.float32
 
 
+def test_convolve_to_preserves_dtype_2D(data_vda, use_dask):
+    # regression test for #995: Projection.convolve_to -- the 2D LDO
+    # convolution path used e.g. to smooth a single moment map, separate
+    # from the cube-level convolve_to fixed above -- should not silently
+    # upcast float32 data to float64. It defaults to convolve_fft, which
+    # by itself already computes in float64 regardless of the input dtype.
+    cube, data = cube_and_raw(data_vda, use_dask=use_dask)
+    cube = cube._new_cube_with(data=cube._data.astype('float32'))
+
+    plane = cube[0]
+    assert plane.dtype == np.float32
+
+    target_beam = Beam(cube.beam.major * 2, cube.beam.minor * 2, cube.beam.pa)
+    convolved = plane.convolve_to(target_beam)
+    assert convolved.dtype == np.float32
+
+
 def test_convolve_to_multibeam_preserves_dtype(data_vda_beams, use_dask):
     # regression test for #995, for the per-channel-beam (VaryingResolution)
     # code path, which allocated its output array as float64 regardless of
