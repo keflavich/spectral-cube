@@ -494,14 +494,20 @@ class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
             # cost) that convolve_fft otherwise performs on float32 data
             kwargs = cube_utils.convolve_fft_singleprecision_kwargs(self.dtype, kwargs)
 
+        if self.unit.is_equivalent(u.Jy / u.beam):
+            beam_ratio_factor = (beam.sr / self.beam.sr).value
+        else:
+            beam_ratio_factor = 1.
+            
         newdata = convolve(self.value, convolution_kernel,
                            normalize_kernel=True,
-                           **kwargs)
+                           **kwargs) * beam_ratio_factor
+
         # belt-and-braces: convolve_fft's dtype/precision are steered via
         # kwargs above, but guarantee the output dtype matches the input
         # regardless (see #995)
         newdata = newdata.astype(self.dtype, copy=False)
-
+        
         self = Projection(newdata, unit=self.unit, wcs=self.wcs,
                           meta=self.meta, header=self.header,
                           beam=beam)

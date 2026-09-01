@@ -21,6 +21,10 @@
   always allocated a float64 output buffer regardless of the input dtype.
   ``VaryingResolutionSpectralCube.convolve_to`` had the same issue in its
   own output buffer allocation. #995
+- Fixed ``Projection.convolve_to`` (i.e. convolving a single cube slice/plane)
+  silently omitting the ``Jy/beam`` scaling by the change in beam area that
+  ``SpectralCube.convolve_to`` already applies, which could produce
+  incorrect values. #1016
 
 0.6.5 (2023-12-05)
 ----------------------
