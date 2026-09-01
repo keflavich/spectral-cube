@@ -2222,8 +2222,7 @@ def test_convolve_to_jybeam_onebeam(point_source_5_one_beam, use_dask):
 def test_convolve_to_jybeam_onebeam_slice(point_source_5_one_beam, use_dask):
     # regression test for #1016: convolving a single cube slice/plane
     # (a Projection) in Jy/beam units must scale by the change in beam
-    # area, exactly like SpectralCube.convolve_to already does -- prior to
-    # the fix, Projection.convolve_to silently omitted this scaling.
+    # area, exactly like SpectralCube.convolve_to does
     cube, data = cube_and_raw(point_source_5_one_beam, use_dask=use_dask)
     assert cube.unit == u.Jy / u.beam
 

@@ -483,8 +483,6 @@ class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
         convolution_kernel = \
             beam.deconvolve(self.beam).as_kernel(pixscale)
 
-        # Scale Jy/beam units by the change in beam size, consistent with
-        # SpectralCube.convolve_to (see #1016)
         if self.unit.is_equivalent(u.Jy / u.beam):
             beam_ratio_factor = (beam.sr / self.beam.sr).value
         else:
