@@ -12,6 +12,11 @@
   non-equivalent units, e.g. a ``Jy/beam`` cube and a dimensionless
   (unitless) cube.  Additive operations still require equivalent units. #1011
 
+- Fixed ``Projection.convolve_to`` (i.e. convolving a single cube slice/plane)
+  silently omitting the ``Jy/beam`` scaling by the change in beam area that
+  ``SpectralCube.convolve_to`` already applies, which could produce
+  incorrect values. #1016
+
 0.6.5 (2023-12-05)
 ----------------------
 - Fixed issue with fix from #893 not getting included in the 0.6.4 tag

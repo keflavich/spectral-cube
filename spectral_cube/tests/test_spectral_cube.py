@@ -2219,6 +2219,32 @@ def test_convolve_to_jybeam_onebeam(point_source_5_one_beam, use_dask):
     assert cube.unit == u.Jy / u.beam
 
 
+def test_convolve_to_jybeam_onebeam_slice(point_source_5_one_beam, use_dask):
+    # regression test for #1016: convolving a single cube slice/plane
+    # (a Projection) in Jy/beam units must scale by the change in beam
+    # area, exactly like SpectralCube.convolve_to already does -- prior to
+    # the fix, Projection.convolve_to silently omitted this scaling.
+    cube, data = cube_and_raw(point_source_5_one_beam, use_dask=use_dask)
+    assert cube.unit == u.Jy / u.beam
+
+    plane = cube[0]
+    target_beam = Beam(10 * u.arcsec)
+
+    convolved_cube = cube.convolve_to(target_beam)
+    convolved_plane = plane.convolve_to(target_beam)
+
+    # convolving a single plane should give the same result as convolving
+    # the whole cube and taking the same channel
+    np.testing.assert_allclose(convolved_plane.value,
+                               convolved_cube[0].value,
+                               atol=1e-5, rtol=1e-5)
+
+    # the peak of the point source should remain ~constant in Jy/beam
+    np.testing.assert_allclose(convolved_plane[5, 5].value,
+                               plane[5, 5].value,
+                               atol=1e-5, rtol=1e-5)
+
+
 def test_convolve_to_jybeam_multibeams(point_source_5_spectral_beams, use_dask):
     cube, data = cube_and_raw(point_source_5_spectral_beams, use_dask=use_dask)
 
