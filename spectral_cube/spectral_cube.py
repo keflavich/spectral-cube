@@ -2604,14 +2604,21 @@ class BaseSpectralCube(BaseNDClass, MaskableArrayMixinClass,
         # special case: array in equivalencies
         # (I don't think this should have to be special cased, but I don't know
         # how to manipulate broadcasting rules any other way)
+        # NOTE: the hasattr/len check must run on the *uncast* factor: a bare
+        # scalar factor has no __len__, but wrapping it in np.array() first
+        # would turn it into a 0-d array, which has __len__ as a class
+        # attribute yet raises TypeError when len() is actually called on it.
         if hasattr(factor, '__len__') and len(factor) == len(self):
+            # the unit conversion factor may be float64 by default, so if
+            # needed demote (or promote) it first to avoid a transient
+            # double-precision copy of the full cube (see #995)
+            factor = np.array(factor, dtype=self._data.dtype)
             data = self._data*factor[:,None,None]
         else:
+            factor = np.asarray(factor, dtype=self._data.dtype)
             data = self._data*factor
 
-        # the unit conversion factor is computed in double precision, which
-        # would otherwise silently inflate, e.g., float32 cubes to float64
-        # (see #995)
+        # possibly redundant: coerce data back into its original dtype
         data = data.astype(self._data.dtype, copy=False)
 
         return self._new_cube_with(data=data, unit=unit)

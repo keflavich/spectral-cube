@@ -179,9 +179,12 @@ class LowerDimensionalObject(u.Quantity, BaseNDClass, HeaderMixinClass):
         factor = cube_utils.bunit_converters(self, unit, equivalencies=equivalencies,
                                              freq=freq)
 
-        # the unit conversion factor is computed in double precision, which
-        # would otherwise silently inflate, e.g., float32 data to float64
-        # (see #995)
+        # the unit conversion factor may be float64 by default, so if needed
+        # demote (or promote) it first to avoid a transient double-precision
+        # copy of the full array (see #995)
+        factor = np.asarray(factor, dtype=self.dtype)
+
+        # possibly redundant: coerce data back into its original dtype
         converted_array = (self.quantity * factor).value.astype(self.dtype, copy=False)
 
         # use private versions of variables, not the generated property
