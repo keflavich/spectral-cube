@@ -483,9 +483,14 @@ class Projection(LowerDimensionalObject, SpatialCoordMixinClass,
         convolution_kernel = \
             beam.deconvolve(self.beam).as_kernel(pixscale)
 
+        if self.unit.is_equivalent(u.Jy / u.beam):
+            beam_ratio_factor = (beam.sr / self.beam.sr).value
+        else:
+            beam_ratio_factor = 1.
+
         newdata = convolve(self.value, convolution_kernel,
                            normalize_kernel=True,
-                           **kwargs)
+                           **kwargs) * beam_ratio_factor
 
         self = Projection(newdata, unit=self.unit, wcs=self.wcs,
                           meta=self.meta, header=self.header,
